@@ -1,5 +1,7 @@
 # ActaLog Benchmark Tool
 
+[![Tests](https://github.com/johnzastrow/actalog-benchmark/actions/workflows/test.yml/badge.svg)](https://github.com/johnzastrow/actalog-benchmark/actions/workflows/test.yml)
+
 A standalone CLI tool for benchmarking ActaLog instances. Tests connectivity, health, API endpoints, frontend assets, and performs load testing.
 
 ## Installation
