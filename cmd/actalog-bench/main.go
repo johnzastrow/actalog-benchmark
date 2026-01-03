@@ -43,6 +43,10 @@ func main() {
 				Aliases: []string{"f"},
 				Usage:   "Run full benchmark suite",
 			},
+			&cli.BoolFlag{
+				Name:  "frontend",
+				Usage: "Include frontend asset benchmarks",
+			},
 			&cli.StringFlag{
 				Name:    "json",
 				Aliases: []string{"j"},
@@ -88,6 +92,7 @@ func run(c *cli.Context) error {
 		User:       c.String("user"),
 		Pass:       c.String("pass"),
 		Full:       c.Bool("full"),
+		Frontend:   c.Bool("frontend"),
 		JSONOutput: c.String("json"),
 		Concurrent: c.Int("concurrent"),
 		Duration:   c.Duration("duration"),
@@ -153,6 +158,14 @@ func run(c *cli.Context) error {
 				break
 			}
 		}
+	}
+
+	// Phase 3.5: Frontend benchmarks (if --frontend or --full)
+	if config.Frontend || config.Full {
+		if config.Verbose {
+			fmt.Println("Benchmarking frontend assets...")
+		}
+		result.Frontend = metrics.BenchmarkFrontend(ctx, httpClient)
 	}
 
 	// Phase 4: Load test (if concurrent > 1 or explicitly requested with --full)

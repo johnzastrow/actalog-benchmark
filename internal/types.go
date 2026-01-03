@@ -10,6 +10,7 @@ type BenchmarkResult struct {
 	Connectivity *ConnectivityResult `json:"connectivity,omitempty"`
 	Health       *HealthResult       `json:"health,omitempty"`
 	Endpoints    []EndpointResult    `json:"endpoints,omitempty"`
+	Frontend     *FrontendResult     `json:"frontend,omitempty"`
 	LoadTest     *LoadTestResult     `json:"load_test,omitempty"`
 	Overall      string              `json:"overall"`
 	Error        string              `json:"error,omitempty"`
@@ -58,12 +59,32 @@ type LoadTestResult struct {
 	AvgLatencyMs  float64 `json:"avg_latency_ms"`
 }
 
+// FrontendResult holds frontend asset benchmark results
+type FrontendResult struct {
+	IndexHTML    *AssetResult   `json:"index_html"`
+	TotalSizeKB  float64        `json:"total_size_kb"`
+	TotalTimeMs  float64        `json:"total_time_ms"`
+	Assets       []AssetResult  `json:"assets,omitempty"`
+}
+
+// AssetResult holds results for a single frontend asset
+type AssetResult struct {
+	Path       string  `json:"path"`
+	SizeKB     float64 `json:"size_kb"`
+	ResponseMs float64 `json:"response_ms"`
+	Status     int     `json:"status"`
+	Success    bool    `json:"success"`
+	Type       string  `json:"type,omitempty"`
+	Error      string  `json:"error,omitempty"`
+}
+
 // Config holds benchmark configuration
 type Config struct {
 	URL        string
 	User       string
 	Pass       string
 	Full       bool
+	Frontend   bool
 	JSONOutput string
 	Concurrent int
 	Duration   time.Duration

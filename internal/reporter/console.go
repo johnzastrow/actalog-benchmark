@@ -34,6 +34,10 @@ func (c *Console) Report(result *internal.BenchmarkResult) {
 		c.printEndpoints(result.Endpoints)
 	}
 
+	if result.Frontend != nil {
+		c.printFrontend(result.Frontend)
+	}
+
 	if result.LoadTest != nil {
 		c.printLoadTest(result.LoadTest)
 	}
@@ -119,6 +123,43 @@ func (c *Console) printEndpoints(endpoints []internal.EndpointResult) {
 		path := truncate(ep.Path, 20)
 		fmt.Printf("│ %-20s %7.1fms  %s                            │\n", path, ep.ResponseMs, status)
 	}
+
+	yellow.Println("└──────────────────────────────────────────────────────────────┘")
+	fmt.Println()
+}
+
+func (c *Console) printFrontend(frontend *internal.FrontendResult) {
+	yellow := color.New(color.FgYellow)
+	green := color.New(color.FgGreen)
+	red := color.New(color.FgRed)
+
+	yellow.Println("┌─ Frontend Assets ────────────────────────────────────────────┐")
+
+	// Index HTML
+	if frontend.IndexHTML != nil {
+		status := green.Sprint("✓")
+		if !frontend.IndexHTML.Success {
+			status = red.Sprint("✗")
+		}
+		fmt.Printf("│ index.html          %7.1fms  %6.1fKB  %s                  │\n",
+			frontend.IndexHTML.ResponseMs, frontend.IndexHTML.SizeKB, status)
+	}
+
+	// Other assets
+	for _, asset := range frontend.Assets {
+		status := green.Sprint("✓")
+		if !asset.Success {
+			status = red.Sprint("✗")
+		}
+		path := truncate(asset.Path, 18)
+		fmt.Printf("│ %-18s %7.1fms  %6.1fKB  %s                  │\n",
+			path, asset.ResponseMs, asset.SizeKB, status)
+	}
+
+	// Summary
+	fmt.Printf("│──────────────────────────────────────────────────────────────│\n")
+	fmt.Printf("│ Total Size:         %6.1fKB                                  │\n", frontend.TotalSizeKB)
+	fmt.Printf("│ Total Load Time:    %7.1fms                                 │\n", frontend.TotalTimeMs)
 
 	yellow.Println("└──────────────────────────────────────────────────────────────┘")
 	fmt.Println()
