@@ -52,6 +52,11 @@ func main() {
 				Aliases: []string{"j"},
 				Usage:   "Export results to JSON file",
 			},
+			&cli.StringFlag{
+				Name:    "markdown",
+				Aliases: []string{"m"},
+				Usage:   "Export results to Markdown file (directory path, filename auto-generated with timestamp)",
+			},
 			&cli.IntFlag{
 				Name:    "concurrent",
 				Aliases: []string{"c"},
@@ -94,6 +99,7 @@ func run(c *cli.Context) error {
 		Full:       c.Bool("full"),
 		Frontend:   c.Bool("frontend"),
 		JSONOutput: c.String("json"),
+		MarkdownOutput: c.String("markdown"),
 		Concurrent: c.Int("concurrent"),
 		Duration:   c.Duration("duration"),
 		Timeout:    c.Duration("timeout"),
@@ -203,6 +209,17 @@ func outputResults(result *internal.BenchmarkResult, config *internal.Config) {
 		jsonReporter := reporter.NewJSON(config.JSONOutput)
 		if err := jsonReporter.Report(result); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to write JSON output: %v\n", err)
+		}
+	}
+
+	// Markdown output (if requested)
+	if config.MarkdownOutput != "" {
+		mdReporter := reporter.NewMarkdown(config.MarkdownOutput, config)
+		filepath, err := mdReporter.Report(result)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to write Markdown output: %v\n", err)
+		} else {
+			fmt.Printf("Markdown report written to: %s\n", filepath)
 		}
 	}
 }

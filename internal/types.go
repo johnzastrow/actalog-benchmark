@@ -80,14 +80,15 @@ type AssetResult struct {
 
 // Config holds benchmark configuration
 type Config struct {
-	URL        string
-	User       string
-	Pass       string
-	Full       bool
-	Frontend   bool
-	JSONOutput string
-	Concurrent int
-	Duration   time.Duration
-	Timeout    time.Duration
-	Verbose    bool
+	URL            string
+	User           string
+	Pass           string
+	Full           bool
+	Frontend       bool
+	JSONOutput     string
+	MarkdownOutput string
+	Concurrent     int
+	Duration       time.Duration
+	Timeout        time.Duration
+	Verbose        bool
 }
