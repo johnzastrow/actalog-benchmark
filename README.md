@@ -1,6 +1,6 @@
 # ActaLog Benchmark Tool
 
-A standalone CLI tool for benchmarking ActaLog instances. Tests connectivity, health, API endpoints, and performs load testing.
+A standalone CLI tool for benchmarking ActaLog instances. Tests connectivity, health, API endpoints, frontend assets, and performs load testing.
 
 ## Installation
 
@@ -29,11 +29,31 @@ actalog-bench --url https://albeta.fluidgrid.site \
   --full
 ```
 
+### Frontend Asset Benchmarking
+
+Test frontend asset loading (HTML, JS, CSS bundle sizes and load times):
+
+```bash
+actalog-bench --url https://albeta.fluidgrid.site --frontend
+```
+
 ### Export to JSON
 
 ```bash
 actalog-bench --url https://albeta.fluidgrid.site --json results.json
 ```
+
+### Export to Markdown Report
+
+Generate a detailed markdown report with narrative explanations:
+
+```bash
+actalog-bench --url https://albeta.fluidgrid.site \
+  --full \
+  --markdown /path/to/reports
+```
+
+The report filename is auto-generated with timestamp: `benchmark_2026-01-03_160300.md`
 
 ### Concurrent Load Test
 
@@ -45,6 +65,19 @@ actalog-bench --url https://albeta.fluidgrid.site \
   --duration 30s
 ```
 
+### Complete Example
+
+Run all benchmarks with both JSON and Markdown output:
+
+```bash
+actalog-bench --url https://albeta.fluidgrid.site \
+  --user admin@example.com \
+  --pass secretpassword \
+  --full \
+  --json results.json \
+  --markdown ./reports
+```
+
 ## Flags
 
 | Flag | Short | Default | Description |
@@ -52,12 +85,14 @@ actalog-bench --url https://albeta.fluidgrid.site \
 | --url | -u | required | Target ActaLog instance URL |
 | --user | | | Username for authenticated tests |
 | --pass | | | Password for authenticated tests |
-| --full | -f | false | Run full benchmark suite |
+| --full | -f | false | Run full benchmark suite (includes frontend and load test) |
+| --frontend | | false | Include frontend asset benchmarks |
 | --json | -j | | Export results to JSON file |
+| --markdown | -m | | Export results to Markdown file (directory path) |
 | --concurrent | -c | 1 | Concurrent requests for load test |
 | --duration | -d | 10s | Duration for load test |
 | --timeout | -t | 30s | Request timeout |
-| --verbose | -v | false | Verbose output |
+| --verbose | | false | Verbose output |
 
 ## Metrics Collected
 
@@ -75,6 +110,13 @@ actalog-bench --url https://albeta.fluidgrid.site \
 ### API Endpoints
 - Response time per endpoint
 - Success/failure status
+- Endpoints tested: `/api/version`, `/health`, `/api/workouts`, `/api/movements`, `/api/wods`, `/api/pr-movements`, `/api/notifications/count`
+
+### Frontend Assets
+- Index HTML load time and size
+- JavaScript bundle load time and size
+- CSS bundle load time and size
+- Total bundle size and load time
 
 ### Load Test
 - Total requests
@@ -85,30 +127,66 @@ actalog-bench --url https://albeta.fluidgrid.site \
 
 ## Example Output
 
+### Console Output
+
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║                 ActaLog Benchmark Results                     ║
 ╠══════════════════════════════════════════════════════════════╣
 ║ Target:  https://albeta.fluidgrid.site                       ║
-║ Time:    2026-01-02 15:45:00 UTC                             ║
-║ Version: 0.17.0-beta+build.72                                ║
+║ Time:    2026-01-03 16:03:00 UTC                             ║
+║ Version: 0.17.0-beta                                         ║
 ╚══════════════════════════════════════════════════════════════╝
 
 ┌─ Connectivity ───────────────────────────────────────────────┐
-│ DNS Resolution:      12.3ms                                   │
-│ TCP Connect:         23.4ms                                   │
-│ TLS Handshake:       45.6ms                                   │
-│ Total:               81.3ms                                   │
+│ DNS Resolution:       2.0ms                                   │
+│ TCP Connect:         56.1ms                                   │
+│ TLS Handshake:       61.7ms                                   │
+│ Total:              119.5ms                                   │
 └──────────────────────────────────────────────────────────────┘
 
 ┌─ Health Check ───────────────────────────────────────────────┐
 │ Status:             ✓ healthy                                 │
-│ Response Time:      15.2ms                                    │
+│ Response Time:      59.5ms                                    │
 │ HTTP Status:        200                                       │
+└──────────────────────────────────────────────────────────────┘
+
+┌─ Frontend Assets ────────────────────────────────────────────┐
+│ index.html          47.6ms     1.4KB  ✓                      │
+│ /assets/index-...   49.2ms   215.5KB  ✓                      │
+│ /assets/index-...   48.7ms   662.0KB  ✓                      │
+│──────────────────────────────────────────────────────────────│
+│ Total Size:        878.9KB                                    │
+│ Total Load Time:   145.5ms                                    │
+└──────────────────────────────────────────────────────────────┘
+
+┌─ Load Test (5 concurrent, 10s) ──────────────────────────────┐
+│ Total Requests:       986                                     │
+│ Successful:           981 (99.5%)                             │
+│ Failed:                 5 (0.5%)                              │
+│ RPS:                 98.6 req/s                               │
+│ Latency p50:         49.8ms                                   │
+│ Latency p95:         59.8ms                                   │
+│ Latency p99:         67.0ms                                   │
 └──────────────────────────────────────────────────────────────┘
 
 Overall: ✓ PASS (all checks healthy)
 ```
+
+### Markdown Report
+
+The `--markdown` flag generates a detailed report with:
+
+- **Executive Summary** - Overall pass/fail status with context
+- **Test Parameters** - Complete table of all benchmark settings
+- **Connectivity Analysis** - Network timing with interpretation
+- **Health Check** - Application health with assessment
+- **API Endpoint Performance** - Per-endpoint metrics with averages
+- **Frontend Asset Performance** - Bundle sizes with recommendations
+- **Load Test Results** - Throughput and latency distribution
+- **Conclusion** - Final verdict with actionable insights
+
+Each section includes narrative explanations and ✅/⚠️/❌ indicators based on performance thresholds.
 
 ## Development
 
