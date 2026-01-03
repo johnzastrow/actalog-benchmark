@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/johnzastrow/actalog-benchmark/internal"
 )
@@ -23,6 +24,14 @@ func (j *JSON) Report(result *internal.BenchmarkResult) error {
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal results: %w", err)
+	}
+
+	// Create parent directories if they don't exist
+	dir := filepath.Dir(j.outputPath)
+	if dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create directory: %w", err)
+		}
 	}
 
 	if err := os.WriteFile(j.outputPath, data, 0644); err != nil {

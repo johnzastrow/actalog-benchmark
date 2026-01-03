@@ -170,9 +170,12 @@ func TestJSON_Report_FullResult(t *testing.T) {
 	}
 }
 
-func TestJSON_Report_InvalidPath(t *testing.T) {
-	// Use an invalid path (directory that doesn't exist)
-	j := NewJSON("/nonexistent/directory/results.json")
+func TestJSON_Report_CreatesDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Use a nested path that doesn't exist
+	outputPath := filepath.Join(tmpDir, "nested", "dir", "results.json")
+
+	j := NewJSON(outputPath)
 
 	result := &internal.BenchmarkResult{
 		Timestamp: time.Now(),
@@ -181,8 +184,13 @@ func TestJSON_Report_InvalidPath(t *testing.T) {
 	}
 
 	err := j.Report(result)
-	if err == nil {
-		t.Error("expected error for invalid path")
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		t.Error("expected output file to exist")
 	}
 }
 

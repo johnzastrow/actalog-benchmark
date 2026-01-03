@@ -582,9 +582,12 @@ func TestMarkdown_Report_DegradedStatus(t *testing.T) {
 	}
 }
 
-func TestMarkdown_Report_InvalidPath(t *testing.T) {
+func TestMarkdown_Report_CreatesDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Use a nested path that doesn't exist
+	nestedDir := tmpDir + "/nested/dir/path"
 	config := &internal.Config{URL: "https://example.com", Timeout: 30 * time.Second}
-	m := NewMarkdown("/nonexistent/directory/path", config)
+	m := NewMarkdown(nestedDir, config)
 
 	result := &internal.BenchmarkResult{
 		Timestamp: time.Now(),
@@ -592,9 +595,14 @@ func TestMarkdown_Report_InvalidPath(t *testing.T) {
 		Overall:   "pass",
 	}
 
-	_, err := m.Report(result)
-	if err == nil {
-		t.Error("expected error for invalid path")
+	filepath, err := m.Report(result)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		t.Error("expected output file to exist")
 	}
 }
 
