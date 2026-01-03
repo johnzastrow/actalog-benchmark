@@ -18,7 +18,111 @@ import (
 
 var version = "0.1.0"
 
+var appHelpTemplate = `NAME:
+   {{.Name}} - {{.Usage}}
+
+VERSION:
+   {{.Version}}
+
+USAGE:
+   {{.HelpName}} [options]
+
+DESCRIPTION:
+   A comprehensive benchmarking tool for ActaLog instances. Tests connectivity,
+   health endpoints, API performance, frontend assets, and performs concurrent
+   load testing. Generates detailed reports in console, JSON, and Markdown formats.
+
+OPTIONS:
+   {{range .VisibleFlags}}{{.}}
+   {{end}}
+
+METRICS COLLECTED:
+   Connectivity    DNS resolution, TCP connect, TLS handshake timing
+   Health          Application health status and response time
+   API Endpoints   Response times for authenticated and public endpoints
+   Frontend        HTML, JavaScript, and CSS bundle sizes and load times
+   Load Test       RPS, latency percentiles (p50/p95/p99), error rates
+
+EXAMPLES:
+
+   1. Quick Health Check
+      Basic connectivity and health verification for a quick status check.
+
+      $ actalog-bench --url https://myapp.example.com
+
+      This performs DNS/TCP/TLS timing and checks the /health endpoint.
+      Use this for quick "is it up?" checks or monitoring scripts.
+
+   2. Frontend Performance Check
+      Measure frontend bundle sizes and load times without authentication.
+
+      $ actalog-bench --url https://myapp.example.com --frontend --verbose
+
+      Fetches index.html, parses it for JS/CSS assets, and measures each.
+      Useful for checking if a new deployment increased bundle sizes.
+
+   3. Authenticated API Benchmark
+      Test all API endpoints with user authentication.
+
+      $ actalog-bench --url https://myapp.example.com \
+          --user admin@example.com --pass secretpass
+
+      Logs in via /api/auth/login, then benchmarks protected endpoints
+      like /api/workouts, /api/movements, /api/wods, etc.
+
+   4. Full Benchmark with Reports
+      Complete benchmark suite with both JSON and Markdown output.
+
+      $ actalog-bench --url https://myapp.example.com \
+          --user admin@example.com --pass secretpass \
+          --full --json results.json --markdown ./reports
+
+      Runs all tests including frontend and a 5-concurrent load test.
+      Generates machine-readable JSON and human-readable Markdown report.
+
+   5. Custom Load Test
+      Targeted load test with specific concurrency and duration.
+
+      $ actalog-bench --url https://myapp.example.com \
+          --user admin@example.com --pass secretpass \
+          --concurrent 20 --duration 60s --verbose
+
+      Simulates 20 concurrent users for 60 seconds. Use this to find
+      breaking points or verify performance after infrastructure changes.
+
+   6. Maximum Stress Test (All Options)
+      Comprehensive stress test with high concurrency, extended duration,
+      all metrics, and complete reporting.
+
+      $ actalog-bench --url https://myapp.example.com \
+          --user admin@example.com --pass secretpass \
+          --full --frontend \
+          --concurrent 50 --duration 300s --timeout 60s \
+          --json stress-test.json --markdown ./reports \
+          --verbose
+
+      This is the ultimate test: 50 concurrent users hammering the server
+      for 5 minutes with a generous 60-second timeout. Includes frontend
+      asset analysis and generates both JSON and Markdown reports.
+
+      WARNING: This will generate significant load. Only run against
+      staging/test environments or with explicit permission on production.
+
+EXIT CODES:
+   0    All checks passed
+   1    One or more checks failed or error occurred
+
+REPORT FORMATS:
+   Console     Real-time colored output with box-drawing characters
+   JSON        Machine-readable format for CI/CD integration
+   Markdown    Human-readable report with narrative explanations
+
+For more information: https://github.com/johnzastrow/actalog-benchmark
+`
+
 func main() {
+	cli.AppHelpTemplate = appHelpTemplate
+
 	app := &cli.App{
 		Name:    "actalog-bench",
 		Usage:   "Benchmark tool for ActaLog instances",
