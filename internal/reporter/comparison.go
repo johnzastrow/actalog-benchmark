@@ -51,19 +51,29 @@ func (c *Comparison) SetThresholds(t *ThresholdConfig) {
 	c.thresholds = t
 }
 
-// ScanDirectory finds all benchmark_*.json files in a directory
+// ScanDirectory finds all .json files in a directory that contain benchmark results
 func (c *Comparison) ScanDirectory(dir string) ([]string, error) {
+	// First try benchmark_*.json pattern (timestamped files from this tool)
 	pattern := filepath.Join(dir, "benchmark_*.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return nil, fmt.Errorf("scan directory: %w", err)
 	}
 
+	// If no timestamped files found, try all *.json files
 	if len(matches) == 0 {
-		return nil, fmt.Errorf("no benchmark_*.json files found in %s", dir)
+		pattern = filepath.Join(dir, "*.json")
+		matches, err = filepath.Glob(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("scan directory: %w", err)
+		}
 	}
 
-	// Sort by filename (which includes timestamp)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no .json files found in %s", dir)
+	}
+
+	// Sort by filename
 	sort.Strings(matches)
 
 	return matches, nil
