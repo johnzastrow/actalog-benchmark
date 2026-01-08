@@ -37,6 +37,15 @@ func (m *Markdown) Report(result *internal.BenchmarkResult) (string, error) {
 	sb.WriteString("# ActaLog Benchmark Report\n\n")
 	sb.WriteString(fmt.Sprintf("**Generated:** %s\n\n", result.Timestamp.Format("2006-01-02 15:04:05 MST")))
 
+	// Command to reproduce
+	if m.config.CommandLine != "" {
+		sb.WriteString("## Command\n\n")
+		sb.WriteString("To reproduce this benchmark, run:\n\n")
+		sb.WriteString("```bash\n")
+		sb.WriteString(m.config.CommandLine)
+		sb.WriteString("\n```\n\n")
+	}
+
 	// Executive Summary
 	sb.WriteString("## Executive Summary\n\n")
 	if result.Error != "" {

@@ -91,4 +91,5 @@ type Config struct {
 	Duration       time.Duration
 	Timeout        time.Duration
 	Verbose        bool
+	CommandLine    string // The exact command that was run
 }

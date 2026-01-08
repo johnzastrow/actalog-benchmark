@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/urfave/cli/v2"
@@ -108,6 +110,52 @@ EXAMPLES:
       WARNING: This will generate significant load. Only run against
       staging/test environments or with explicit permission on production.
 
+   7. Compare Multiple Benchmark Runs
+      Generate a comparison report from multiple JSON benchmark files.
+
+      $ actalog-bench --compare ./reports/
+
+      Scans the directory for all benchmark_*.json files, sorts them by
+      timestamp, and generates a comparison markdown report showing:
+      - Side-by-side metrics comparison
+      - Delta calculations with trend indicators
+      - Threshold alerts for performance regressions
+      - Chart-ready CSV data for creating graphs
+
+   8. Compare with Custom Thresholds
+      Set custom alert thresholds for the comparison report.
+
+      $ actalog-bench --compare ./reports/ \
+          --threshold-p95 200 --threshold-p99 500 \
+          --threshold-error-rate 0.5 --threshold-rps-min 50
+
+      Generates alerts when p95 latency exceeds 200ms, p99 exceeds 500ms,
+      error rate exceeds 0.5%, or RPS drops below 50.
+
+      Sample comparison report output:
+
+      # Benchmark Comparison Report
+      **Comparing 3 benchmark runs**
+
+      ## Run Overview
+      | # | Timestamp        | Version      | Overall      |
+      |---|------------------|--------------|--------------|
+      | 1 | 2026-01-07 10:00 | 0.19.0-beta  | ✅ pass      |
+      | 2 | 2026-01-08 10:00 | 0.20.0-beta  | ✅ pass      |
+      | 3 | 2026-01-08 12:00 | 0.20.0-beta  | ⚠️ degraded  |
+
+      ## Load Test Comparison
+      | Metric           | Run 1 | Run 2  | Run 3   | Δ (Last vs First) |
+      |------------------|------:|-------:|--------:|------------------:|
+      | RPS              |     - |  50.00 |    8.00 | 🔴 -42.00 (-84%)  |
+      | p95 Latency (ms) |     - |  45.00 |  600.00 | 🔴 +555.00        |
+      | p99 Latency (ms) |     - |  80.00 | 1200.00 | 🔴 +1120.00       |
+
+      ## ⚠️ Threshold Alerts
+      - 🔴 Run 3: p95 latency 600ms exceeds threshold 500ms
+      - 🔴 Run 3: p99 latency 1200ms exceeds threshold 1000ms
+      - 🔴 Run 3: RPS 8.00 below minimum threshold 10
+
 EXIT CODES:
    0    All checks passed
    1    One or more checks failed or error occurred
@@ -129,10 +177,9 @@ func main() {
 		Version: version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "url",
-				Aliases:  []string{"u"},
-				Usage:    "Target ActaLog instance URL",
-				Required: true,
+				Name:    "url",
+				Aliases: []string{"u"},
+				Usage:   "Target ActaLog instance URL (required for benchmarking, not for --compare)",
 			},
 			&cli.StringFlag{
 				Name:  "user",
@@ -181,7 +228,31 @@ func main() {
 			},
 			&cli.BoolFlag{
 				Name:  "verbose",
-				Usage:   "Verbose output",
+				Usage: "Verbose output",
+			},
+			&cli.StringFlag{
+				Name:  "compare",
+				Usage: "Compare mode: generate comparison report from JSON files in directory",
+			},
+			&cli.Float64Flag{
+				Name:  "threshold-p95",
+				Value: 500,
+				Usage: "Alert threshold for p95 latency (ms)",
+			},
+			&cli.Float64Flag{
+				Name:  "threshold-p99",
+				Value: 1000,
+				Usage: "Alert threshold for p99 latency (ms)",
+			},
+			&cli.Float64Flag{
+				Name:  "threshold-error-rate",
+				Value: 1.0,
+				Usage: "Alert threshold for error rate (%)",
+			},
+			&cli.Float64Flag{
+				Name:  "threshold-rps-min",
+				Value: 10,
+				Usage: "Alert threshold for minimum RPS",
 			},
 		},
 		Action: run,
@@ -193,21 +264,76 @@ func main() {
 	}
 }
 
+// buildCommandLine constructs a copy-pasteable command from the arguments
+// It masks the password for security
+func buildCommandLine(c *cli.Context) string {
+	var parts []string
+	parts = append(parts, "actalog-bench")
+
+	// Add flags in a readable order
+	if url := c.String("url"); url != "" {
+		parts = append(parts, fmt.Sprintf("--url %s", url))
+	}
+	if user := c.String("user"); user != "" {
+		parts = append(parts, fmt.Sprintf("--user %s", user))
+	}
+	if c.String("pass") != "" {
+		parts = append(parts, "--pass <PASSWORD>")
+	}
+	if c.Bool("full") {
+		parts = append(parts, "--full")
+	}
+	if c.Bool("frontend") {
+		parts = append(parts, "--frontend")
+	}
+	if concurrent := c.Int("concurrent"); concurrent > 1 {
+		parts = append(parts, fmt.Sprintf("--concurrent %d", concurrent))
+	}
+	if duration := c.Duration("duration"); duration != 10*time.Second {
+		parts = append(parts, fmt.Sprintf("--duration %s", duration))
+	}
+	if timeout := c.Duration("timeout"); timeout != 30*time.Second {
+		parts = append(parts, fmt.Sprintf("--timeout %s", timeout))
+	}
+	if jsonOut := c.String("json"); jsonOut != "" {
+		parts = append(parts, fmt.Sprintf("--json %s", jsonOut))
+	}
+	if mdOut := c.String("markdown"); mdOut != "" {
+		parts = append(parts, fmt.Sprintf("--markdown %s", mdOut))
+	}
+	if c.Bool("verbose") {
+		parts = append(parts, "--verbose")
+	}
+
+	return strings.Join(parts, " \\\n  ")
+}
+
 func run(c *cli.Context) error {
+	// Handle compare mode separately
+	if compareDir := c.String("compare"); compareDir != "" {
+		return runCompare(c, compareDir)
+	}
+
+	// URL is required for benchmarking mode
+	if c.String("url") == "" {
+		return fmt.Errorf("--url is required for benchmarking (use --compare for comparison mode)")
+	}
+
 	ctx := context.Background()
 
 	config := &internal.Config{
-		URL:        c.String("url"),
-		User:       c.String("user"),
-		Pass:       c.String("pass"),
-		Full:       c.Bool("full"),
-		Frontend:   c.Bool("frontend"),
-		JSONOutput: c.String("json"),
+		URL:            c.String("url"),
+		User:           c.String("user"),
+		Pass:           c.String("pass"),
+		Full:           c.Bool("full"),
+		Frontend:       c.Bool("frontend"),
+		JSONOutput:     c.String("json"),
 		MarkdownOutput: c.String("markdown"),
-		Concurrent: c.Int("concurrent"),
-		Duration:   c.Duration("duration"),
-		Timeout:    c.Duration("timeout"),
-		Verbose:    c.Bool("verbose"),
+		Concurrent:     c.Int("concurrent"),
+		Duration:       c.Duration("duration"),
+		Timeout:        c.Duration("timeout"),
+		Verbose:        c.Bool("verbose"),
+		CommandLine:    buildCommandLine(c),
 	}
 
 	result := &internal.BenchmarkResult{
@@ -311,8 +437,11 @@ func outputResults(result *internal.BenchmarkResult, config *internal.Config) {
 	// JSON output (if requested)
 	if config.JSONOutput != "" {
 		jsonReporter := reporter.NewJSON(config.JSONOutput)
-		if err := jsonReporter.Report(result); err != nil {
+		filepath, err := jsonReporter.Report(result)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to write JSON output: %v\n", err)
+		} else {
+			fmt.Printf("JSON report written to: %s\n", filepath)
 		}
 	}
 
@@ -326,6 +455,51 @@ func outputResults(result *internal.BenchmarkResult, config *internal.Config) {
 			fmt.Printf("Markdown report written to: %s\n", filepath)
 		}
 	}
+}
+
+func runCompare(c *cli.Context, inputDir string) error {
+	// Determine output directory (same as input by default)
+	outputDir := inputDir
+	if mdOut := c.String("markdown"); mdOut != "" {
+		outputDir = mdOut
+	}
+
+	comp := reporter.NewComparison(outputDir)
+
+	// Set custom thresholds
+	comp.SetThresholds(&reporter.ThresholdConfig{
+		LatencyP95MaxMs:   c.Float64("threshold-p95"),
+		LatencyP99MaxMs:   c.Float64("threshold-p99"),
+		ErrorRateMaxPct:   c.Float64("threshold-error-rate"),
+		RPSMinimum:        c.Float64("threshold-rps-min"),
+		HealthResponseMax: 100, // Fixed default for now
+	})
+
+	// Scan directory for benchmark JSON files
+	jsonFiles, err := comp.ScanDirectory(inputDir)
+	if err != nil {
+		return fmt.Errorf("scan directory: %w", err)
+	}
+
+	if c.Bool("verbose") {
+		fmt.Printf("Found %d benchmark files in %s:\n", len(jsonFiles), inputDir)
+		for _, f := range jsonFiles {
+			fmt.Printf("  - %s\n", filepath.Base(f))
+		}
+	}
+
+	if len(jsonFiles) < 2 {
+		return fmt.Errorf("comparison requires at least 2 benchmark files, found %d", len(jsonFiles))
+	}
+
+	// Generate comparison report
+	reportPath, err := comp.Report(jsonFiles)
+	if err != nil {
+		return fmt.Errorf("generate comparison: %w", err)
+	}
+
+	fmt.Printf("Comparison report written to: %s\n", reportPath)
+	return nil
 }
 
 func getVersion(ctx context.Context, c *client.Client) string {

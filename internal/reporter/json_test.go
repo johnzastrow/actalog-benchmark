@@ -45,18 +45,18 @@ func TestJSON_Report_Success(t *testing.T) {
 		},
 	}
 
-	err := j.Report(result)
+	writtenPath, err := j.Report(result)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
-	// Verify file was created
-	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+	// Verify file was created at the returned path
+	if _, err := os.Stat(writtenPath); os.IsNotExist(err) {
 		t.Fatal("expected output file to exist")
 	}
 
 	// Read and verify content
-	data, err := os.ReadFile(outputPath)
+	data, err := os.ReadFile(writtenPath)
 	if err != nil {
 		t.Fatalf("failed to read output file: %v", err)
 	}
@@ -137,13 +137,13 @@ func TestJSON_Report_FullResult(t *testing.T) {
 		},
 	}
 
-	err := j.Report(result)
+	writtenPath, err := j.Report(result)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
 	// Read and verify all sections present
-	data, err := os.ReadFile(outputPath)
+	data, err := os.ReadFile(writtenPath)
 	if err != nil {
 		t.Fatalf("failed to read output file: %v", err)
 	}
@@ -183,13 +183,13 @@ func TestJSON_Report_CreatesDirectory(t *testing.T) {
 		Overall:   "pass",
 	}
 
-	err := j.Report(result)
+	writtenPath, err := j.Report(result)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
 	// Verify file was created
-	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+	if _, err := os.Stat(writtenPath); os.IsNotExist(err) {
 		t.Error("expected output file to exist")
 	}
 }
@@ -206,13 +206,13 @@ func TestJSON_Report_Formatting(t *testing.T) {
 		Overall:   "pass",
 	}
 
-	err := j.Report(result)
+	writtenPath, err := j.Report(result)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
 	// Read file and check it's properly indented
-	data, err := os.ReadFile(outputPath)
+	data, err := os.ReadFile(writtenPath)
 	if err != nil {
 		t.Fatalf("failed to read output file: %v", err)
 	}
@@ -240,13 +240,13 @@ func TestJSON_Report_WithError(t *testing.T) {
 		Error:     "connection timeout",
 	}
 
-	err := j.Report(result)
+	writtenPath, err := j.Report(result)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
 	// Read and verify error field
-	data, err := os.ReadFile(outputPath)
+	data, err := os.ReadFile(writtenPath)
 	if err != nil {
 		t.Fatalf("failed to read output file: %v", err)
 	}
@@ -274,13 +274,13 @@ func TestJSON_Report_OmitEmpty(t *testing.T) {
 		// All other fields nil/empty
 	}
 
-	err := j.Report(result)
+	writtenPath, err := j.Report(result)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
 	// Read and verify omitempty fields are not present
-	data, err := os.ReadFile(outputPath)
+	data, err := os.ReadFile(writtenPath)
 	if err != nil {
 		t.Fatalf("failed to read output file: %v", err)
 	}
@@ -305,6 +305,35 @@ func TestJSON_Report_OmitEmpty(t *testing.T) {
 	}
 	if contains(content, `"error"`) {
 		t.Error("expected error to be omitted when empty")
+	}
+}
+
+func TestJSON_Report_DirectoryMode(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Pass a directory path (not ending in .json)
+	j := NewJSON(tmpDir)
+
+	result := &internal.BenchmarkResult{
+		Timestamp: time.Date(2026, 1, 3, 14, 30, 45, 0, time.UTC),
+		Target:    "https://example.com",
+		Overall:   "pass",
+	}
+
+	writtenPath, err := j.Report(result)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// Should have generated a timestamped filename
+	expectedFilename := "benchmark_2026-01-03_143045.json"
+	if filepath.Base(writtenPath) != expectedFilename {
+		t.Errorf("expected filename '%s', got '%s'", expectedFilename, filepath.Base(writtenPath))
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(writtenPath); os.IsNotExist(err) {
+		t.Error("expected output file to exist")
 	}
 }
 
