@@ -201,7 +201,29 @@ func (c *Console) printBenchmarkAPI(api *internal.BenchmarkAPIResult) {
 	yellow.Println("┌─ Server-Side Benchmark API ──────────────────────────────────┐")
 
 	if api.Error != "" {
-		fmt.Printf("│ %-60s │\n", color.RedString("Error: %s", truncate(api.Error, 52)))
+		// Show full error, possibly on multiple lines
+		errMsg := api.Error
+		if len(errMsg) > 52 {
+			fmt.Printf("│ %-60s │\n", color.RedString("Error:"))
+			// Word wrap the error message
+			words := strings.Split(errMsg, " ")
+			line := ""
+			for _, word := range words {
+				if len(line)+len(word)+1 > 58 {
+					fmt.Printf("│   %-58s │\n", line)
+					line = word
+				} else if line == "" {
+					line = word
+				} else {
+					line += " " + word
+				}
+			}
+			if line != "" {
+				fmt.Printf("│   %-58s │\n", line)
+			}
+		} else {
+			fmt.Printf("│ %-60s │\n", color.RedString("Error: %s", errMsg))
+		}
 		yellow.Println("└──────────────────────────────────────────────────────────────┘")
 		fmt.Println()
 		return

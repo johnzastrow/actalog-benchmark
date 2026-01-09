@@ -36,6 +36,8 @@ func RunBenchmarkAPI(ctx context.Context, c *client.Client, includeConcurrent bo
 	path += params
 
 	start := time.Now()
+	// Note: Long-running benchmarks require SERVER_WRITE_TIMEOUT to be set appropriately
+	// (default is 60s, which allows ~50k records; use 120s+ for 100k+ records)
 	resp, err := c.Post(ctx, path, nil)
 	result.TotalDurationMs = float64(time.Since(start).Microseconds()) / 1000.0
 
