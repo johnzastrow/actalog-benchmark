@@ -625,3 +625,586 @@ func TestGetAssetMetrics(t *testing.T) {
 		t.Error("expected not to find asset with nil frontend")
 	}
 }
+
+// Tests for Benchmark API helper functions
+
+func TestHasBenchmarkAPI(t *testing.T) {
+	resultsWithAPI := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Success:  true,
+			Response: &internal.BenchmarkAPIResponse{},
+		}},
+	}
+	resultsWithAPINoResponse := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{Success: true}},
+	}
+	resultsWithoutAPI := []*internal.BenchmarkResult{
+		{},
+	}
+
+	if !hasBenchmarkAPI(resultsWithAPI) {
+		t.Error("expected hasBenchmarkAPI to return true")
+	}
+	if hasBenchmarkAPI(resultsWithAPINoResponse) {
+		t.Error("expected hasBenchmarkAPI to return false when Response is nil")
+	}
+	if hasBenchmarkAPI(resultsWithoutAPI) {
+		t.Error("expected hasBenchmarkAPI to return false")
+	}
+}
+
+func TestHasDBOperations(t *testing.T) {
+	resultsWithDB := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Database: map[string]*internal.OperationResult{
+					"insert": {Operation: "insert", Success: true},
+				},
+			},
+		}},
+	}
+	resultsWithoutDB := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{},
+		}},
+	}
+	resultsNil := []*internal.BenchmarkResult{{}}
+
+	if !hasDBOperations(resultsWithDB) {
+		t.Error("expected hasDBOperations to return true")
+	}
+	if hasDBOperations(resultsWithoutDB) {
+		t.Error("expected hasDBOperations to return false for empty map")
+	}
+	if hasDBOperations(resultsNil) {
+		t.Error("expected hasDBOperations to return false for nil")
+	}
+}
+
+func TestHasSerializationOps(t *testing.T) {
+	resultsWithSer := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Serialization: map[string]*internal.OperationResult{
+					"marshal_small": {Operation: "marshal_small", Success: true},
+				},
+			},
+		}},
+	}
+	resultsWithoutSer := []*internal.BenchmarkResult{{}}
+
+	if !hasSerializationOps(resultsWithSer) {
+		t.Error("expected hasSerializationOps to return true")
+	}
+	if hasSerializationOps(resultsWithoutSer) {
+		t.Error("expected hasSerializationOps to return false")
+	}
+}
+
+func TestHasBusinessLogicOps(t *testing.T) {
+	resultsWithBL := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				BusinessLogic: map[string]*internal.OperationResult{
+					"validation": {Operation: "validation", Success: true},
+				},
+			},
+		}},
+	}
+	resultsWithoutBL := []*internal.BenchmarkResult{{}}
+
+	if !hasBusinessLogicOps(resultsWithBL) {
+		t.Error("expected hasBusinessLogicOps to return true")
+	}
+	if hasBusinessLogicOps(resultsWithoutBL) {
+		t.Error("expected hasBusinessLogicOps to return false")
+	}
+}
+
+func TestHasConcurrentOps(t *testing.T) {
+	resultsWithConc := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Concurrent: map[string]*internal.OperationResult{
+					"parallel_reads": {Operation: "parallel_reads", Success: true},
+				},
+			},
+		}},
+	}
+	resultsWithoutConc := []*internal.BenchmarkResult{{}}
+
+	if !hasConcurrentOps(resultsWithConc) {
+		t.Error("expected hasConcurrentOps to return true")
+	}
+	if hasConcurrentOps(resultsWithoutConc) {
+		t.Error("expected hasConcurrentOps to return false")
+	}
+}
+
+func TestCollectDBOperationNames(t *testing.T) {
+	results := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Database: map[string]*internal.OperationResult{
+					"insert": {Operation: "insert"},
+					"delete": {Operation: "delete"},
+				},
+			},
+		}},
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Database: map[string]*internal.OperationResult{
+					"insert": {Operation: "insert"},
+					"update": {Operation: "update"},
+				},
+			},
+		}},
+	}
+
+	names := collectDBOperationNames(results)
+	if len(names) != 3 {
+		t.Errorf("expected 3 unique operations, got %d", len(names))
+	}
+	// Should be sorted
+	if names[0] != "delete" || names[1] != "insert" || names[2] != "update" {
+		t.Errorf("expected sorted names [delete, insert, update], got %v", names)
+	}
+}
+
+func TestCollectSerializationOpNames(t *testing.T) {
+	results := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Serialization: map[string]*internal.OperationResult{
+					"marshal_small": {},
+					"marshal_large": {},
+				},
+			},
+		}},
+	}
+
+	names := collectSerializationOpNames(results)
+	if len(names) != 2 {
+		t.Errorf("expected 2 operations, got %d", len(names))
+	}
+}
+
+func TestCollectBusinessLogicOpNames(t *testing.T) {
+	results := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				BusinessLogic: map[string]*internal.OperationResult{
+					"validation":      {},
+					"date_operations": {},
+				},
+			},
+		}},
+	}
+
+	names := collectBusinessLogicOpNames(results)
+	if len(names) != 2 {
+		t.Errorf("expected 2 operations, got %d", len(names))
+	}
+}
+
+func TestCollectConcurrentOpNames(t *testing.T) {
+	results := []*internal.BenchmarkResult{
+		{BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Concurrent: map[string]*internal.OperationResult{
+					"parallel_reads":  {},
+					"parallel_writes": {},
+				},
+			},
+		}},
+	}
+
+	names := collectConcurrentOpNames(results)
+	if len(names) != 2 {
+		t.Errorf("expected 2 operations, got %d", len(names))
+	}
+}
+
+func TestGetDBOperationDuration(t *testing.T) {
+	result := &internal.BenchmarkResult{
+		BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Database: map[string]*internal.OperationResult{
+					"insert": {Operation: "insert", DurationMs: 5.5},
+				},
+			},
+		},
+	}
+
+	val, found := getDBOperationDuration(result, "insert")
+	if !found {
+		t.Error("expected to find operation")
+	}
+	if val != 5.5 {
+		t.Errorf("expected 5.5, got %f", val)
+	}
+
+	_, found = getDBOperationDuration(result, "notfound")
+	if found {
+		t.Error("expected not to find operation")
+	}
+
+	// Test nil result
+	nilResult := &internal.BenchmarkResult{}
+	_, found = getDBOperationDuration(nilResult, "insert")
+	if found {
+		t.Error("expected not to find operation with nil BenchmarkAPI")
+	}
+}
+
+func TestGetSerializationOpDuration(t *testing.T) {
+	result := &internal.BenchmarkResult{
+		BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Serialization: map[string]*internal.OperationResult{
+					"marshal_small": {Operation: "marshal_small", DurationMs: 0.02},
+				},
+			},
+		},
+	}
+
+	val, found := getSerializationOpDuration(result, "marshal_small")
+	if !found {
+		t.Error("expected to find operation")
+	}
+	if val != 0.02 {
+		t.Errorf("expected 0.02, got %f", val)
+	}
+
+	_, found = getSerializationOpDuration(result, "notfound")
+	if found {
+		t.Error("expected not to find operation")
+	}
+}
+
+func TestGetBusinessLogicOpDuration(t *testing.T) {
+	result := &internal.BenchmarkResult{
+		BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				BusinessLogic: map[string]*internal.OperationResult{
+					"validation": {Operation: "validation", DurationMs: 0.003},
+				},
+			},
+		},
+	}
+
+	val, found := getBusinessLogicOpDuration(result, "validation")
+	if !found {
+		t.Error("expected to find operation")
+	}
+	if val != 0.003 {
+		t.Errorf("expected 0.003, got %f", val)
+	}
+
+	_, found = getBusinessLogicOpDuration(result, "notfound")
+	if found {
+		t.Error("expected not to find operation")
+	}
+}
+
+func TestGetConcurrentOpDuration(t *testing.T) {
+	result := &internal.BenchmarkResult{
+		BenchmarkAPI: &internal.BenchmarkAPIResult{
+			Response: &internal.BenchmarkAPIResponse{
+				Concurrent: map[string]*internal.OperationResult{
+					"parallel_reads": {Operation: "parallel_reads", DurationMs: 15.5},
+				},
+			},
+		},
+	}
+
+	val, found := getConcurrentOpDuration(result, "parallel_reads")
+	if !found {
+		t.Error("expected to find operation")
+	}
+	if val != 15.5 {
+		t.Errorf("expected 15.5, got %f", val)
+	}
+
+	_, found = getConcurrentOpDuration(result, "notfound")
+	if found {
+		t.Error("expected not to find operation")
+	}
+}
+
+func TestReport_WithBenchmarkAPI(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test result files with benchmark API data
+	results := []*internal.BenchmarkResult{
+		{
+			Timestamp: time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
+			Target:    "https://example.com",
+			Version:   "1.0.0",
+			Overall:   "pass",
+			BenchmarkAPI: &internal.BenchmarkAPIResult{
+				Success:         true,
+				HTTPStatus:      200,
+				TotalDurationMs: 35.5,
+				Response: &internal.BenchmarkAPIResponse{
+					Version:         "1.0.0",
+					TotalDurationMs: 35.0,
+					Overall:         "pass",
+					SystemInfo: &internal.SystemInfo{
+						GoVersion:       "go1.21.0",
+						GoOS:            "linux",
+						GoArch:          "amd64",
+						OSVersion:       "Ubuntu 22.04",
+						NumCPU:          8,
+						DatabaseVersion: "3.40.0",
+						DatabaseDriver:  "sqlite3",
+					},
+					Database: map[string]*internal.OperationResult{
+						"insert":       {Operation: "insert", Success: true, DurationMs: 5.0},
+						"select_by_id": {Operation: "select_by_id", Success: true, DurationMs: 0.5},
+					},
+					Serialization: map[string]*internal.OperationResult{
+						"marshal_small": {Operation: "marshal_small", Success: true, DurationMs: 0.02},
+					},
+					BusinessLogic: map[string]*internal.OperationResult{
+						"validation": {Operation: "validation", Success: true, DurationMs: 0.003},
+					},
+					TotalOperations:      4,
+					SuccessfulOperations: 4,
+					FailedOperations:     0,
+				},
+			},
+		},
+		{
+			Timestamp: time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC),
+			Target:    "https://example.com",
+			Version:   "1.0.1",
+			Overall:   "pass",
+			BenchmarkAPI: &internal.BenchmarkAPIResult{
+				Success:         true,
+				HTTPStatus:      200,
+				TotalDurationMs: 32.0,
+				Response: &internal.BenchmarkAPIResponse{
+					Version:         "1.0.1",
+					TotalDurationMs: 31.5,
+					Overall:         "pass",
+					SystemInfo: &internal.SystemInfo{
+						GoVersion:       "go1.21.0",
+						GoOS:            "linux",
+						GoArch:          "amd64",
+						OSVersion:       "Ubuntu 22.04",
+						NumCPU:          8,
+						DatabaseVersion: "3.40.0",
+						DatabaseDriver:  "sqlite3",
+					},
+					Database: map[string]*internal.OperationResult{
+						"insert":       {Operation: "insert", Success: true, DurationMs: 4.5},
+						"select_by_id": {Operation: "select_by_id", Success: true, DurationMs: 0.4},
+					},
+					Serialization: map[string]*internal.OperationResult{
+						"marshal_small": {Operation: "marshal_small", Success: true, DurationMs: 0.018},
+					},
+					BusinessLogic: map[string]*internal.OperationResult{
+						"validation": {Operation: "validation", Success: true, DurationMs: 0.002},
+					},
+					TotalOperations:      4,
+					SuccessfulOperations: 4,
+					FailedOperations:     0,
+				},
+			},
+		},
+	}
+
+	var paths []string
+	for i, r := range results {
+		data, _ := json.Marshal(r)
+		path := filepath.Join(tmpDir, "benchmark_"+string(rune('0'+i))+".json")
+		if err := os.WriteFile(path, data, 0644); err != nil {
+			t.Fatalf("failed to write test file: %v", err)
+		}
+		paths = append(paths, path)
+	}
+
+	c := NewComparison(tmpDir)
+	outputPath, err := c.Report(paths)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// Read and verify content
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+
+	contentStr := string(content)
+
+	// Check for Server-Side Benchmark sections
+	sections := []string{
+		"## Server-Side Benchmark Comparison",
+		"### System Information",
+		"### Benchmark Summary",
+		"### Database Operations",
+		"### Serialization Operations",
+		"### Business Logic Operations",
+		"ActaLog Version",
+		"Go Version",
+		"Platform",
+		"CPUs",
+		"Database",
+		"sqlite3 3.40.0",
+		"go1.21.0",
+		"linux/amd64",
+	}
+
+	for _, section := range sections {
+		if !strings.Contains(contentStr, section) {
+			t.Errorf("expected content to contain '%s'", section)
+		}
+	}
+}
+
+func TestReport_WithoutBenchmarkAPI(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test result files WITHOUT benchmark API data (simulating older format)
+	results := []*internal.BenchmarkResult{
+		{
+			Timestamp: time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
+			Target:    "https://example.com",
+			Version:   "0.19.0",
+			Overall:   "pass",
+			Health: &internal.HealthResult{
+				Status:     "healthy",
+				ResponseMs: 45.0,
+				HTTPStatus: 200,
+			},
+		},
+		{
+			Timestamp: time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC),
+			Target:    "https://example.com",
+			Version:   "0.19.1",
+			Overall:   "pass",
+			Health: &internal.HealthResult{
+				Status:     "healthy",
+				ResponseMs: 40.0,
+				HTTPStatus: 200,
+			},
+		},
+	}
+
+	var paths []string
+	for i, r := range results {
+		data, _ := json.Marshal(r)
+		path := filepath.Join(tmpDir, "benchmark_"+string(rune('0'+i))+".json")
+		if err := os.WriteFile(path, data, 0644); err != nil {
+			t.Fatalf("failed to write test file: %v", err)
+		}
+		paths = append(paths, path)
+	}
+
+	c := NewComparison(tmpDir)
+	outputPath, err := c.Report(paths)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// Read and verify content
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+
+	contentStr := string(content)
+
+	// Server-Side Benchmark section should NOT be present
+	if strings.Contains(contentStr, "## Server-Side Benchmark Comparison") {
+		t.Error("expected Server-Side Benchmark section to NOT be present when benchmark_api is missing")
+	}
+
+	// But Health Check should still be present
+	if !strings.Contains(contentStr, "## Health Check Comparison") {
+		t.Error("expected Health Check section to be present")
+	}
+}
+
+func TestReport_WithConcurrentOps(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test result files with concurrent operations
+	results := []*internal.BenchmarkResult{
+		{
+			Timestamp: time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
+			Target:    "https://example.com",
+			Version:   "1.0.0",
+			Overall:   "pass",
+			BenchmarkAPI: &internal.BenchmarkAPIResult{
+				Success: true,
+				Response: &internal.BenchmarkAPIResponse{
+					Version: "1.0.0",
+					Overall: "pass",
+					Concurrent: map[string]*internal.OperationResult{
+						"parallel_reads":  {Operation: "parallel_reads", Success: true, DurationMs: 15.0},
+						"parallel_writes": {Operation: "parallel_writes", Success: true, DurationMs: 25.0},
+					},
+					TotalOperations:      2,
+					SuccessfulOperations: 2,
+				},
+			},
+		},
+		{
+			Timestamp: time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC),
+			Target:    "https://example.com",
+			Version:   "1.0.1",
+			Overall:   "pass",
+			BenchmarkAPI: &internal.BenchmarkAPIResult{
+				Success: true,
+				Response: &internal.BenchmarkAPIResponse{
+					Version: "1.0.1",
+					Overall: "pass",
+					Concurrent: map[string]*internal.OperationResult{
+						"parallel_reads":  {Operation: "parallel_reads", Success: true, DurationMs: 12.0},
+						"parallel_writes": {Operation: "parallel_writes", Success: true, DurationMs: 22.0},
+					},
+					TotalOperations:      2,
+					SuccessfulOperations: 2,
+				},
+			},
+		},
+	}
+
+	var paths []string
+	for i, r := range results {
+		data, _ := json.Marshal(r)
+		path := filepath.Join(tmpDir, "benchmark_"+string(rune('0'+i))+".json")
+		if err := os.WriteFile(path, data, 0644); err != nil {
+			t.Fatalf("failed to write test file: %v", err)
+		}
+		paths = append(paths, path)
+	}
+
+	c := NewComparison(tmpDir)
+	outputPath, err := c.Report(paths)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// Read and verify content
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("failed to read output file: %v", err)
+	}
+
+	contentStr := string(content)
+
+	// Check for Concurrent Operations section
+	if !strings.Contains(contentStr, "### Concurrent Operations") {
+		t.Error("expected Concurrent Operations section to be present")
+	}
+	if !strings.Contains(contentStr, "parallel_reads") {
+		t.Error("expected parallel_reads operation to be present")
+	}
+	if !strings.Contains(contentStr, "parallel_writes") {
+		t.Error("expected parallel_writes operation to be present")
+	}
+}
