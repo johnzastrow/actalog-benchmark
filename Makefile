@@ -1,7 +1,7 @@
 .PHONY: build clean test run install
 
 BINARY_NAME=actalog-bench
-VERSION ?= 0.1.0
+VERSION ?= 0.7.0
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o bin/$(BINARY_NAME) ./cmd/actalog-bench
