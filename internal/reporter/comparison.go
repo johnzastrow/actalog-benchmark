@@ -637,6 +637,346 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 		sb.WriteString("\n")
 	}
 
+	// Server-Side Benchmark API Comparison
+	if hasBenchmarkAPI(results) {
+		sb.WriteString("## Server-Side Benchmark Comparison\n\n")
+		sb.WriteString("The server-side benchmark tests internal ActaLog operations directly on the server, measuring database queries, JSON serialization, and business logic calculations independent of network latency.\n\n")
+
+		// System Information Overview
+		sb.WriteString("### System Information\n\n")
+		sb.WriteString("This table shows the server environment for each benchmark run. Changes in system configuration can significantly impact performance results.\n\n")
+		sb.WriteString("| Property |")
+		for i := range results {
+			sb.WriteString(fmt.Sprintf(" Run %d |", i+1))
+		}
+		sb.WriteString("\n")
+
+		sb.WriteString("|----------|")
+		for range results {
+			sb.WriteString("--------|")
+		}
+		sb.WriteString("\n")
+
+		// ActaLog Version
+		sb.WriteString("| ActaLog Version |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil {
+				sb.WriteString(fmt.Sprintf(" %s |", r.BenchmarkAPI.Response.Version))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString("\n")
+
+		// Go Version
+		sb.WriteString("| Go Version |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && r.BenchmarkAPI.Response.SystemInfo != nil {
+				sb.WriteString(fmt.Sprintf(" %s |", r.BenchmarkAPI.Response.SystemInfo.GoVersion))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString("\n")
+
+		// Platform
+		sb.WriteString("| Platform |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && r.BenchmarkAPI.Response.SystemInfo != nil {
+				sb.WriteString(fmt.Sprintf(" %s/%s |", r.BenchmarkAPI.Response.SystemInfo.GoOS, r.BenchmarkAPI.Response.SystemInfo.GoArch))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString("\n")
+
+		// OS Version
+		sb.WriteString("| OS Version |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && r.BenchmarkAPI.Response.SystemInfo != nil && r.BenchmarkAPI.Response.SystemInfo.OSVersion != "" {
+				osVer := r.BenchmarkAPI.Response.SystemInfo.OSVersion
+				if len(osVer) > 40 {
+					osVer = osVer[:37] + "..."
+				}
+				sb.WriteString(fmt.Sprintf(" %s |", osVer))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString("\n")
+
+		// CPUs
+		sb.WriteString("| CPUs |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && r.BenchmarkAPI.Response.SystemInfo != nil {
+				sb.WriteString(fmt.Sprintf(" %d |", r.BenchmarkAPI.Response.SystemInfo.NumCPU))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString("\n")
+
+		// Database
+		sb.WriteString("| Database |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && r.BenchmarkAPI.Response.SystemInfo != nil {
+				sb.WriteString(fmt.Sprintf(" %s %s |", r.BenchmarkAPI.Response.SystemInfo.DatabaseDriver, r.BenchmarkAPI.Response.SystemInfo.DatabaseVersion))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString("\n\n")
+
+		// Benchmark Summary
+		sb.WriteString("### Benchmark Summary\n\n")
+		sb.WriteString("| Metric |")
+		for i := range results {
+			sb.WriteString(fmt.Sprintf(" Run %d |", i+1))
+		}
+		sb.WriteString(" Δ (Last vs First) |\n")
+
+		sb.WriteString("|--------|")
+		for range results {
+			sb.WriteString("-------:|")
+		}
+		sb.WriteString("---------------:|\n")
+
+		// Overall Status
+		sb.WriteString("| Overall |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil {
+				status := "✅ " + r.BenchmarkAPI.Response.Overall
+				if r.BenchmarkAPI.Response.Overall != "pass" {
+					status = "❌ " + r.BenchmarkAPI.Response.Overall
+				}
+				sb.WriteString(fmt.Sprintf(" %s |", status))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(" - |\n")
+
+		// Total Duration
+		sb.WriteString("| Duration (ms) |")
+		var firstDur, lastDur float64
+		var firstDurSet bool
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil {
+				sb.WriteString(fmt.Sprintf(" %.2f |", r.BenchmarkAPI.Response.TotalDurationMs))
+				if !firstDurSet {
+					firstDur = r.BenchmarkAPI.Response.TotalDurationMs
+					firstDurSet = true
+				}
+				lastDur = r.BenchmarkAPI.Response.TotalDurationMs
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		if firstDurSet {
+			sb.WriteString(formatDelta(lastDur, firstDur) + " |\n")
+		} else {
+			sb.WriteString(" - |\n")
+		}
+
+		// Total Operations
+		sb.WriteString("| Total Ops |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil {
+				sb.WriteString(fmt.Sprintf(" %d |", r.BenchmarkAPI.Response.TotalOperations))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(" - |\n")
+
+		// Successful Operations
+		sb.WriteString("| Successful |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil {
+				sb.WriteString(fmt.Sprintf(" %d |", r.BenchmarkAPI.Response.SuccessfulOperations))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(" - |\n")
+
+		// Failed Operations
+		sb.WriteString("| Failed |")
+		for _, r := range results {
+			if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil {
+				sb.WriteString(fmt.Sprintf(" %d |", r.BenchmarkAPI.Response.FailedOperations))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(" - |\n")
+		sb.WriteString("\n")
+
+		// Database Operations Comparison
+		if hasDBOperations(results) {
+			sb.WriteString("### Database Operations\n\n")
+			sb.WriteString("| Operation |")
+			for i := range results {
+				sb.WriteString(fmt.Sprintf(" Run %d (ms) |", i+1))
+			}
+			sb.WriteString(" Δ (Last vs First) |\n")
+
+			sb.WriteString("|-----------|")
+			for range results {
+				sb.WriteString("-----------:|")
+			}
+			sb.WriteString("---------------:|\n")
+
+			dbOpNames := collectDBOperationNames(results)
+			for _, opName := range dbOpNames {
+				sb.WriteString(fmt.Sprintf("| %s |", opName))
+				var firstVal, lastVal float64
+				var firstSet bool
+				for _, r := range results {
+					if val, found := getDBOperationDuration(r, opName); found {
+						sb.WriteString(fmt.Sprintf(" %.2f |", val))
+						if !firstSet {
+							firstVal = val
+							firstSet = true
+						}
+						lastVal = val
+					} else {
+						sb.WriteString(" - |")
+					}
+				}
+				if firstSet {
+					sb.WriteString(formatDelta(lastVal, firstVal) + " |\n")
+				} else {
+					sb.WriteString(" - |\n")
+				}
+			}
+			sb.WriteString("\n")
+		}
+
+		// Serialization Operations Comparison
+		if hasSerializationOps(results) {
+			sb.WriteString("### Serialization Operations\n\n")
+			sb.WriteString("| Operation |")
+			for i := range results {
+				sb.WriteString(fmt.Sprintf(" Run %d (ms) |", i+1))
+			}
+			sb.WriteString(" Δ (Last vs First) |\n")
+
+			sb.WriteString("|-----------|")
+			for range results {
+				sb.WriteString("-----------:|")
+			}
+			sb.WriteString("---------------:|\n")
+
+			serOpNames := collectSerializationOpNames(results)
+			for _, opName := range serOpNames {
+				sb.WriteString(fmt.Sprintf("| %s |", opName))
+				var firstVal, lastVal float64
+				var firstSet bool
+				for _, r := range results {
+					if val, found := getSerializationOpDuration(r, opName); found {
+						sb.WriteString(fmt.Sprintf(" %.2f |", val))
+						if !firstSet {
+							firstVal = val
+							firstSet = true
+						}
+						lastVal = val
+					} else {
+						sb.WriteString(" - |")
+					}
+				}
+				if firstSet {
+					sb.WriteString(formatDelta(lastVal, firstVal) + " |\n")
+				} else {
+					sb.WriteString(" - |\n")
+				}
+			}
+			sb.WriteString("\n")
+		}
+
+		// Business Logic Operations Comparison
+		if hasBusinessLogicOps(results) {
+			sb.WriteString("### Business Logic Operations\n\n")
+			sb.WriteString("| Operation |")
+			for i := range results {
+				sb.WriteString(fmt.Sprintf(" Run %d (ms) |", i+1))
+			}
+			sb.WriteString(" Δ (Last vs First) |\n")
+
+			sb.WriteString("|-----------|")
+			for range results {
+				sb.WriteString("-----------:|")
+			}
+			sb.WriteString("---------------:|\n")
+
+			blOpNames := collectBusinessLogicOpNames(results)
+			for _, opName := range blOpNames {
+				sb.WriteString(fmt.Sprintf("| %s |", opName))
+				var firstVal, lastVal float64
+				var firstSet bool
+				for _, r := range results {
+					if val, found := getBusinessLogicOpDuration(r, opName); found {
+						sb.WriteString(fmt.Sprintf(" %.2f |", val))
+						if !firstSet {
+							firstVal = val
+							firstSet = true
+						}
+						lastVal = val
+					} else {
+						sb.WriteString(" - |")
+					}
+				}
+				if firstSet {
+					sb.WriteString(formatDelta(lastVal, firstVal) + " |\n")
+				} else {
+					sb.WriteString(" - |\n")
+				}
+			}
+			sb.WriteString("\n")
+		}
+
+		// Concurrent Operations Comparison
+		if hasConcurrentOps(results) {
+			sb.WriteString("### Concurrent Operations\n\n")
+			sb.WriteString("| Operation |")
+			for i := range results {
+				sb.WriteString(fmt.Sprintf(" Run %d (ms) |", i+1))
+			}
+			sb.WriteString(" Δ (Last vs First) |\n")
+
+			sb.WriteString("|-----------|")
+			for range results {
+				sb.WriteString("-----------:|")
+			}
+			sb.WriteString("---------------:|\n")
+
+			concOpNames := collectConcurrentOpNames(results)
+			for _, opName := range concOpNames {
+				sb.WriteString(fmt.Sprintf("| %s |", opName))
+				var firstVal, lastVal float64
+				var firstSet bool
+				for _, r := range results {
+					if val, found := getConcurrentOpDuration(r, opName); found {
+						sb.WriteString(fmt.Sprintf(" %.2f |", val))
+						if !firstSet {
+							firstVal = val
+							firstSet = true
+						}
+						lastVal = val
+					} else {
+						sb.WriteString(" - |")
+					}
+				}
+				if firstSet {
+					sb.WriteString(formatDelta(lastVal, firstVal) + " |\n")
+				} else {
+					sb.WriteString(" - |\n")
+				}
+			}
+			sb.WriteString("\n")
+		}
+	}
+
 	// Threshold Alerts
 	alerts := c.checkThresholds(results)
 	if len(alerts) > 0 {
@@ -888,6 +1228,15 @@ func hasEndpoints(results []*internal.BenchmarkResult) bool {
 	return false
 }
 
+func hasBenchmarkAPI(results []*internal.BenchmarkResult) bool {
+	for _, r := range results {
+		if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // collectEndpointPaths returns all unique endpoint paths across all results
 func collectEndpointPaths(results []*internal.BenchmarkResult) []string {
 	pathSet := make(map[string]bool)
@@ -954,6 +1303,156 @@ func getAssetMetrics(r *internal.BenchmarkResult, path string) (sizeKB float64, 
 		}
 	}
 	return 0, 0, false
+}
+
+// Helper functions for benchmark API operations
+
+func hasDBOperations(results []*internal.BenchmarkResult) bool {
+	for _, r := range results {
+		if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && len(r.BenchmarkAPI.Response.Database) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasSerializationOps(results []*internal.BenchmarkResult) bool {
+	for _, r := range results {
+		if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && len(r.BenchmarkAPI.Response.Serialization) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasBusinessLogicOps(results []*internal.BenchmarkResult) bool {
+	for _, r := range results {
+		if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && len(r.BenchmarkAPI.Response.BusinessLogic) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasConcurrentOps(results []*internal.BenchmarkResult) bool {
+	for _, r := range results {
+		if r.BenchmarkAPI != nil && r.BenchmarkAPI.Response != nil && len(r.BenchmarkAPI.Response.Concurrent) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func collectDBOperationNames(results []*internal.BenchmarkResult) []string {
+	nameSet := make(map[string]bool)
+	var names []string
+	for _, r := range results {
+		if r.BenchmarkAPI == nil || r.BenchmarkAPI.Response == nil {
+			continue
+		}
+		for name := range r.BenchmarkAPI.Response.Database {
+			if !nameSet[name] {
+				nameSet[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+func collectSerializationOpNames(results []*internal.BenchmarkResult) []string {
+	nameSet := make(map[string]bool)
+	var names []string
+	for _, r := range results {
+		if r.BenchmarkAPI == nil || r.BenchmarkAPI.Response == nil {
+			continue
+		}
+		for name := range r.BenchmarkAPI.Response.Serialization {
+			if !nameSet[name] {
+				nameSet[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+func collectBusinessLogicOpNames(results []*internal.BenchmarkResult) []string {
+	nameSet := make(map[string]bool)
+	var names []string
+	for _, r := range results {
+		if r.BenchmarkAPI == nil || r.BenchmarkAPI.Response == nil {
+			continue
+		}
+		for name := range r.BenchmarkAPI.Response.BusinessLogic {
+			if !nameSet[name] {
+				nameSet[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+func collectConcurrentOpNames(results []*internal.BenchmarkResult) []string {
+	nameSet := make(map[string]bool)
+	var names []string
+	for _, r := range results {
+		if r.BenchmarkAPI == nil || r.BenchmarkAPI.Response == nil {
+			continue
+		}
+		for name := range r.BenchmarkAPI.Response.Concurrent {
+			if !nameSet[name] {
+				nameSet[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+func getDBOperationDuration(r *internal.BenchmarkResult, opName string) (float64, bool) {
+	if r.BenchmarkAPI == nil || r.BenchmarkAPI.Response == nil {
+		return 0, false
+	}
+	if op, exists := r.BenchmarkAPI.Response.Database[opName]; exists && op != nil {
+		return op.DurationMs, true
+	}
+	return 0, false
+}
+
+func getSerializationOpDuration(r *internal.BenchmarkResult, opName string) (float64, bool) {
+	if r.BenchmarkAPI == nil || r.BenchmarkAPI.Response == nil {
+		return 0, false
+	}
+	if op, exists := r.BenchmarkAPI.Response.Serialization[opName]; exists && op != nil {
+		return op.DurationMs, true
+	}
+	return 0, false
+}
+
+func getBusinessLogicOpDuration(r *internal.BenchmarkResult, opName string) (float64, bool) {
+	if r.BenchmarkAPI == nil || r.BenchmarkAPI.Response == nil {
+		return 0, false
+	}
+	if op, exists := r.BenchmarkAPI.Response.BusinessLogic[opName]; exists && op != nil {
+		return op.DurationMs, true
+	}
+	return 0, false
+}
+
+func getConcurrentOpDuration(r *internal.BenchmarkResult, opName string) (float64, bool) {
+	if r.BenchmarkAPI == nil || r.BenchmarkAPI.Response == nil {
+		return 0, false
+	}
+	if op, exists := r.BenchmarkAPI.Response.Concurrent[opName]; exists && op != nil {
+		return op.DurationMs, true
+	}
+	return 0, false
 }
 
 // checkThresholds evaluates all results against configured thresholds
