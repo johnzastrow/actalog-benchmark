@@ -130,6 +130,7 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 
 	// Run Overview Table
 	sb.WriteString("## Run Overview\n\n")
+	sb.WriteString("This table summarizes each benchmark run included in this comparison. The **Overall** status indicates whether all tests passed (✅), some tests showed degraded performance (⚠️), or critical tests failed (❌).\n\n")
 	sb.WriteString("| # | Timestamp | Target | Version | Overall |\n")
 	sb.WriteString("|---|-----------|--------|---------|--------|\n")
 	for i, r := range results {
@@ -151,6 +152,11 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 	// Connectivity Comparison
 	if hasConnectivity(results) {
 		sb.WriteString("## Connectivity Comparison\n\n")
+		sb.WriteString("Connectivity metrics measure the time required to establish a network connection to the server. These timings are critical for understanding baseline network latency before any application logic is involved.\n\n")
+		sb.WriteString("- **DNS (Domain Name System)**: Time to resolve the server's hostname to an IP address. High values may indicate DNS server issues or network congestion.\n")
+		sb.WriteString("- **TCP (Transmission Control Protocol)**: Time to establish a TCP connection (the \"three-way handshake\"). This reflects network round-trip latency.\n")
+		sb.WriteString("- **TLS (Transport Layer Security)**: Time for the secure handshake that establishes encrypted HTTPS connections. Includes certificate verification.\n")
+		sb.WriteString("- **Total**: Combined time for all connectivity steps. Lower values indicate faster initial connection establishment.\n\n")
 		sb.WriteString("| Metric |")
 		for i := range results {
 			sb.WriteString(fmt.Sprintf(" Run %d |", i+1))
@@ -236,6 +242,9 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 	// Health Check Comparison
 	if hasHealth(results) {
 		sb.WriteString("## Health Check Comparison\n\n")
+		sb.WriteString("The health check endpoint (`/health`) provides a quick verification that the application is running and can respond to requests. This is the most basic availability test.\n\n")
+		sb.WriteString("- **Status**: Whether the application reports itself as healthy. A healthy status indicates the server is operational and database connections are working.\n")
+		sb.WriteString("- **Response Time**: How quickly the health endpoint responds. This measures basic application responsiveness without complex business logic.\n\n")
 		sb.WriteString("| Metric |")
 		for i := range results {
 			sb.WriteString(fmt.Sprintf(" Run %d |", i+1))
@@ -284,6 +293,9 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 	// Frontend Comparison
 	if hasFrontend(results) {
 		sb.WriteString("## Frontend Assets Comparison\n\n")
+		sb.WriteString("Frontend metrics measure the size and load time of the web application's static assets (HTML, JavaScript, CSS). These directly impact user experience, especially on slower connections or mobile devices.\n\n")
+		sb.WriteString("- **Total Size (KB)**: Combined size of all frontend assets in kilobytes. Smaller bundles load faster and use less bandwidth. Size increases may indicate new features or inefficient bundling.\n")
+		sb.WriteString("- **Total Time (ms)**: Time to download all frontend assets in milliseconds. Affected by both bundle size and server response time.\n\n")
 		sb.WriteString("| Metric |")
 		for i := range results {
 			sb.WriteString(fmt.Sprintf(" Run %d |", i+1))
@@ -333,6 +345,14 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 	// Load Test Comparison
 	if hasLoadTest(results) {
 		sb.WriteString("## Load Test Comparison\n\n")
+		sb.WriteString("Load testing simulates multiple concurrent users making requests to measure how the server performs under stress. These metrics are critical for understanding capacity and identifying performance bottlenecks.\n\n")
+		sb.WriteString("- **Concurrent**: Number of simultaneous users (goroutines) making requests during the test.\n")
+		sb.WriteString("- **RPS (Requests Per Second)**: Throughput measure showing how many requests the server can handle per second. Higher values indicate better capacity.\n")
+		sb.WriteString("- **Success Rate**: Percentage of requests that completed successfully (HTTP 2xx responses). Values below 99% may indicate server overload.\n")
+		sb.WriteString("- **p50 Latency (50th Percentile)**: The median response time—50% of requests completed faster than this value. Represents typical user experience.\n")
+		sb.WriteString("- **p95 Latency (95th Percentile)**: 95% of requests completed faster than this value. Helps identify slower outliers that affect some users.\n")
+		sb.WriteString("- **p99 Latency (99th Percentile)**: 99% of requests completed faster than this value. Reveals worst-case scenarios and tail latency issues.\n")
+		sb.WriteString("- **Avg Latency**: Arithmetic mean of all response times. Can be skewed by outliers, so percentiles are often more meaningful.\n\n")
 		sb.WriteString("| Metric |")
 		for i := range results {
 			sb.WriteString(fmt.Sprintf(" Run %d |", i+1))
@@ -454,6 +474,7 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 	alerts := c.checkThresholds(results)
 	if len(alerts) > 0 {
 		sb.WriteString("## ⚠️ Threshold Alerts\n\n")
+		sb.WriteString("Threshold alerts identify benchmark runs where critical performance metrics exceeded acceptable limits. These alerts help catch performance regressions before they impact users in production.\n\n")
 		sb.WriteString("The following metrics exceeded configured thresholds:\n\n")
 		for _, alert := range alerts {
 			sb.WriteString(fmt.Sprintf("- %s\n", alert))
@@ -463,8 +484,9 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 
 	// Chart-Ready CSV Data
 	sb.WriteString("## Chart-Ready Data (CSV)\n\n")
-	sb.WriteString("Copy the data below to create charts in spreadsheet applications:\n\n")
+	sb.WriteString("The data below is formatted as CSV (Comma-Separated Values) for easy import into spreadsheet applications like Microsoft Excel, Google Sheets, or LibreOffice Calc. Copy the data between the code fences and paste into your spreadsheet to create trend charts and visualizations.\n\n")
 	sb.WriteString("### Latency Over Time\n\n")
+	sb.WriteString("Columns: Timestamp, DNS (Domain Name System resolution in milliseconds), TCP (connection time), Health (health endpoint response), p50/p95/p99 (latency percentiles from load testing).\n\n")
 	sb.WriteString("```csv\n")
 	sb.WriteString("Timestamp,DNS_ms,TCP_ms,Health_ms,p50_ms,p95_ms,p99_ms\n")
 	for _, r := range results {
@@ -490,6 +512,7 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 
 	if hasLoadTest(results) {
 		sb.WriteString("### Throughput Over Time\n\n")
+		sb.WriteString("Columns: Timestamp, RPS (Requests Per Second - server throughput), Success_Rate_Pct (percentage of successful HTTP responses), Total_Requests (total number of requests made), Failed (count of failed requests).\n\n")
 		sb.WriteString("```csv\n")
 		sb.WriteString("Timestamp,RPS,Success_Rate_Pct,Total_Requests,Failed\n")
 		for _, r := range results {
@@ -509,6 +532,7 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 
 	if hasFrontend(results) {
 		sb.WriteString("### Frontend Assets Over Time\n\n")
+		sb.WriteString("Columns: Timestamp, Total_Size_KB (combined size of all frontend assets in kilobytes), Total_Time_ms (time to download all assets in milliseconds).\n\n")
 		sb.WriteString("```csv\n")
 		sb.WriteString("Timestamp,Total_Size_KB,Total_Time_ms\n")
 		for _, r := range results {
