@@ -3,7 +3,9 @@
 [![Tests](https://github.com/johnzastrow/actalog-benchmark/actions/workflows/test.yml/badge.svg)](https://github.com/johnzastrow/actalog-benchmark/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/johnzastrow/actalog-benchmark/branch/main/graph/badge.svg)](https://codecov.io/gh/johnzastrow/actalog-benchmark)
 
-A standalone CLI tool for benchmarking ActaLog instances. Tests connectivity, health, API endpoints, frontend assets, and performs load testing.
+A standalone CLI tool for benchmarking ActaLog instances. Tests connectivity, health, API endpoints, frontend assets, and performs load testing with comparison reports.
+
+**Version:** 0.5.0
 
 ## Installation
 
@@ -13,6 +15,19 @@ go install github.com/johnzastrow/actalog-benchmark/cmd/actalog-bench@latest
 
 # Or build locally
 make build
+```
+
+## Quick Start
+
+```bash
+# Basic health check
+actalog-bench --url https://your-actalog-instance.com
+
+# Full benchmark with authentication
+actalog-bench --url https://your-instance.com --user admin@example.com --pass secret --full
+
+# Compare multiple benchmark runs
+actalog-bench --compare ./benchmark-results/
 ```
 
 ## Usage
@@ -43,8 +58,10 @@ actalog-bench --url https://albeta.fluidgrid.site --frontend
 ### Export to JSON
 
 ```bash
-actalog-bench --url https://albeta.fluidgrid.site --json results.json
+actalog-bench --url https://albeta.fluidgrid.site --json ./results/
 ```
+
+The JSON file is auto-generated with timestamp: `benchmark_2026-01-08_160300.json`
 
 ### Export to Markdown Report
 
@@ -53,10 +70,33 @@ Generate a detailed markdown report with narrative explanations:
 ```bash
 actalog-bench --url https://albeta.fluidgrid.site \
   --full \
-  --markdown /path/to/reports
+  --markdown ./reports/
 ```
 
-The report filename is auto-generated with timestamp: `benchmark_2026-01-03_160300.md`
+The report filename is auto-generated with timestamp: `benchmark_2026-01-08_160300.md`
+
+### Compare Multiple Benchmark Runs
+
+Generate a comparison report from multiple JSON benchmark results:
+
+```bash
+# Compare all JSON files in a directory
+actalog-bench --compare ./benchmark-results/
+
+# With custom thresholds
+actalog-bench --compare ./results/ \
+  --threshold-p95 200 \
+  --threshold-p99 500 \
+  --threshold-error-rate 0.5 \
+  --threshold-rps-min 100
+```
+
+The comparison report includes:
+- Side-by-side metrics for all runs
+- Delta calculations (improvement/regression percentages)
+- Trend indicators (green for improvements, red for regressions)
+- Threshold alerts when metrics exceed limits
+- Chart-ready CSV data for spreadsheet import
 
 ### Concurrent Load Test
 
@@ -77,25 +117,36 @@ actalog-bench --url https://albeta.fluidgrid.site \
   --user admin@example.com \
   --pass secretpassword \
   --full \
-  --json results.json \
-  --markdown ./reports
+  --frontend \
+  --json ./results/ \
+  --markdown ./reports/
 ```
 
 ## Flags
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| --url | -u | required | Target ActaLog instance URL |
-| --user | | | Username for authenticated tests |
-| --pass | | | Password for authenticated tests |
-| --full | -f | false | Run full benchmark suite (includes frontend and load test) |
-| --frontend | | false | Include frontend asset benchmarks |
-| --json | -j | | Export results to JSON file |
-| --markdown | -m | | Export results to Markdown file (directory path) |
-| --concurrent | -c | 1 | Concurrent requests for load test |
-| --duration | -d | 10s | Duration for load test |
-| --timeout | -t | 30s | Request timeout |
-| --verbose | | false | Verbose output |
+| `--url` | `-u` | required | Target ActaLog instance URL |
+| `--user` | | | Username for authenticated tests |
+| `--pass` | | | Password for authenticated tests |
+| `--full` | `-f` | false | Run full benchmark suite (includes frontend and load test) |
+| `--frontend` | | false | Include frontend asset benchmarks |
+| `--json` | `-j` | | Export results to JSON file (directory path) |
+| `--markdown` | `-m` | | Export results to Markdown file (directory path) |
+| `--compare` | | | Compare mode: scan directory for JSON files and generate comparison report |
+| `--concurrent` | `-c` | 1 | Concurrent requests for load test |
+| `--duration` | `-d` | 10s | Duration for load test |
+| `--timeout` | `-t` | 30s | Request timeout |
+| `--verbose` | | false | Verbose output |
+
+### Threshold Flags (for comparison mode)
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--threshold-p95` | 500 | Alert if p95 latency exceeds this (ms) |
+| `--threshold-p99` | 1000 | Alert if p99 latency exceeds this (ms) |
+| `--threshold-error-rate` | 1.0 | Alert if error rate exceeds this (%) |
+| `--threshold-rps-min` | 10 | Alert if RPS drops below this |
 
 ## Metrics Collected
 
@@ -137,8 +188,8 @@ actalog-bench --url https://albeta.fluidgrid.site \
 ║                 ActaLog Benchmark Results                     ║
 ╠══════════════════════════════════════════════════════════════╣
 ║ Target:  https://albeta.fluidgrid.site                       ║
-║ Time:    2026-01-03 16:03:00 UTC                             ║
-║ Version: 0.17.0-beta                                         ║
+║ Time:    2026-01-08 16:03:00 UTC                             ║
+║ Version: 0.20.0-beta                                         ║
 ╚══════════════════════════════════════════════════════════════╝
 
 ┌─ Connectivity ───────────────────────────────────────────────┐
@@ -176,6 +227,22 @@ actalog-bench --url https://albeta.fluidgrid.site \
 Overall: ✓ PASS (all checks healthy)
 ```
 
+### Comparison Report Example
+
+```bash
+actalog-bench --compare ./benchmark-results/
+```
+
+Generates a markdown comparison report with:
+
+| Metric | Run 1 | Run 2 | Run 3 | Δ (Last vs First) |
+|--------|------:|------:|------:|------------------:|
+| DNS (ms) | 1.49 | 1.80 | 1.74 | 🔴 +0.24 (+16.4%) |
+| TCP (ms) | 75.88 | 92.78 | 67.24 | 🟢 -8.63 (-11.4%) |
+| RPS | 647.72 | 596.02 | 617.66 | 🔴 -30.06 (-4.6%) |
+
+Plus chart-ready CSV data for creating trend visualizations in spreadsheets.
+
 ### Markdown Report
 
 The `--markdown` flag generates a detailed report with:
@@ -189,7 +256,7 @@ The `--markdown` flag generates a detailed report with:
 - **Load Test Results** - Throughput and latency distribution
 - **Conclusion** - Final verdict with actionable insights
 
-Each section includes narrative explanations and ✅/⚠️/❌ indicators based on performance thresholds.
+Each section includes narrative explanations and indicators based on performance thresholds.
 
 ## Development
 
@@ -206,6 +273,10 @@ make fmt
 # Install locally
 make install
 ```
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## License
 
