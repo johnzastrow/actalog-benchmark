@@ -5,7 +5,7 @@
 
 A standalone CLI tool for benchmarking ActaLog instances. Tests connectivity, health, API endpoints, frontend assets, and performs load testing with comparison reports.
 
-**Version:** 0.5.0
+**Version:** 0.6.0
 
 ## Installation
 

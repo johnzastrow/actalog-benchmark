@@ -5,6 +5,20 @@ All notable changes to actalog-benchmark are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-01-09
+
+### Added
+
+- **Server-Side Benchmark Comparison**: New section in comparison reports showing ActaLog's `/api/benchmark` results
+  - System Information table (ActaLog version, Go version, Platform, OS version, CPUs, Database)
+  - Benchmark Summary table (Overall status, Duration, Total/Successful/Failed operations)
+  - Database Operations comparison with delta indicators
+  - Serialization Operations comparison
+  - Business Logic Operations comparison
+  - Concurrent Operations comparison (when available)
+- **Graceful Handling**: Comparison reports handle missing `benchmark_api` data from older JSON files
+- **Comprehensive Tests**: Added 18 new tests for benchmark API comparison helpers (76.9% coverage)
+
 ## [0.5.0] - 2026-01-08
 
 ### Added
@@ -142,6 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.6.0 | 2026-01-09 | Server-side benchmark comparison, graceful handling |
 | 0.5.0 | 2026-01-08 | Comparison reports, threshold alerts, CSV export |
 | 0.4.0 | 2026-01-03 | Unit tests, GitHub Actions CI, Codecov |
 | 0.3.0 | 2026-01-03 | Markdown reports, comprehensive help |

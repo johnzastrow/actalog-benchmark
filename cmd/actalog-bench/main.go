@@ -18,7 +18,7 @@ import (
 	"github.com/johnzastrow/actalog-benchmark/internal/reporter"
 )
 
-var version = "0.5.0"
+var version = "0.6.0"
 
 var appHelpTemplate = `NAME:
    {{.Name}} - {{.Usage}}
