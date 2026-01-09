@@ -5,7 +5,7 @@
 
 A standalone CLI tool for benchmarking ActaLog instances. Tests connectivity, health, API endpoints, frontend assets, and performs load testing with comparison reports.
 
-**Version:** 0.6.0
+**Version:** 0.7.0
 
 ## Installation
 
@@ -108,6 +108,34 @@ actalog-bench --url https://albeta.fluidgrid.site \
   --duration 30s
 ```
 
+### Server-Side Benchmark with Custom Record Count
+
+Test the ActaLog `/api/benchmark` endpoint with configurable data volume:
+
+```bash
+# Default (1,000 records)
+actalog-bench --url https://your-instance.com \
+  --user admin@example.com \
+  --pass secretpassword \
+  --full
+
+# Stress test with 10,000 records
+actalog-bench --url https://your-instance.com \
+  --user admin@example.com \
+  --pass secretpassword \
+  --full \
+  --benchmark-records 10000
+
+# Heavy load test with 100,000 records
+actalog-bench --url https://your-instance.com \
+  --user admin@example.com \
+  --pass secretpassword \
+  --full \
+  --benchmark-records 100000
+```
+
+**Note:** For large record counts (100k+), ensure the ActaLog server has `SERVER_WRITE_TIMEOUT` set to 120s or higher to avoid timeout errors.
+
 ### Complete Example
 
 Run all benchmarks with both JSON and Markdown output:
@@ -137,6 +165,7 @@ actalog-bench --url https://albeta.fluidgrid.site \
 | `--concurrent` | `-c` | 1 | Concurrent requests for load test |
 | `--duration` | `-d` | 10s | Duration for load test |
 | `--timeout` | `-t` | 30s | Request timeout |
+| `--benchmark-records` | | 1000 | Number of records for server-side benchmark (max: 500000) |
 | `--verbose` | | false | Verbose output |
 
 ### Threshold Flags (for comparison mode)

@@ -5,6 +5,33 @@ All notable changes to actalog-benchmark are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-01-09
+
+### Added
+
+- **Configurable Benchmark Record Count**: New `--benchmark-records` flag to control server-side benchmark data volume
+  - Default: 1,000 records
+  - Maximum: 500,000 records
+  - Scales database, serialization, and business logic benchmarks
+  - Example: `actalog-bench --full --benchmark-records 10000`
+
+- **Enhanced Error Display**: Full error messages with word wrapping instead of truncation
+  - Shows complete error context for debugging
+  - Properly wraps long error messages for readability
+
+### Changed
+
+- **Documentation Updates**
+  - Added server-side benchmark section to README with usage examples
+  - Added `--benchmark-records` flag to flags table
+  - Added timeout configuration note for large record counts (100k+)
+
+### Fixed
+
+- **Timeout Documentation**: Added notes about ActaLog `SERVER_WRITE_TIMEOUT` requirements
+  - 100k records takes ~37 seconds, requires 60s+ timeout
+  - Recommends 120s for 100k+ record benchmarks
+
 ## [0.6.0] - 2026-01-09
 
 ### Added
@@ -156,6 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.7.0 | 2026-01-09 | Configurable benchmark record count, enhanced error display |
 | 0.6.0 | 2026-01-09 | Server-side benchmark comparison, graceful handling |
 | 0.5.0 | 2026-01-08 | Comparison reports, threshold alerts, CSV export |
 | 0.4.0 | 2026-01-03 | Unit tests, GitHub Actions CI, Codecov |
