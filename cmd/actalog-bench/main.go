@@ -156,6 +156,23 @@ EXAMPLES:
       - 🔴 Run 3: p99 latency 1200ms exceeds threshold 1000ms
       - 🔴 Run 3: RPS 8.00 below minimum threshold 10
 
+   9. Server-Side Benchmark with Custom Record Count
+      Stress test the database with 10,000 complex records.
+
+      $ actalog-bench --url https://myapp.example.com \
+          --user admin@example.com --pass secretpass \
+          --full --benchmark-records 10000
+
+      The server-side benchmark generates large, complex records (5-10KB each)
+      with nested JSON data to stress test database operations. Use higher
+      values (up to 500,000) for intensive stress testing.
+
+      Record count recommendations:
+      - 100-1000:    Quick sanity check (~100-500ms)
+      - 1000-10000:  Standard benchmark (~500ms-5s)
+      - 10000-50000: Stress test (~5-30s)
+      - 50000+:      Heavy load test (30s+)
+
 EXIT CODES:
    0    All checks passed
    1    One or more checks failed or error occurred
