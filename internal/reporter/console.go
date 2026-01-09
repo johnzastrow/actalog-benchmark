@@ -238,6 +238,9 @@ func (c *Console) printBenchmarkAPI(api *internal.BenchmarkAPIResult) {
 	}
 	fmt.Printf("│ Overall:            %-40s │\n", overallStr)
 	fmt.Printf("│ Total Duration:     %7.1fms                                 │\n", resp.TotalDurationMs)
+	if resp.RecordCount > 0 {
+		fmt.Printf("│ Records:            %-40d │\n", resp.RecordCount)
+	}
 	fmt.Printf("│ Operations:         %d total, %d passed, %d failed            │\n",
 		resp.TotalOperations, resp.SuccessfulOperations, resp.FailedOperations)
 

@@ -81,18 +81,19 @@ type AssetResult struct {
 
 // Config holds benchmark configuration
 type Config struct {
-	URL            string
-	User           string
-	Pass           string
-	Full           bool
-	Frontend       bool
-	JSONOutput     string
-	MarkdownOutput string
-	Concurrent     int
-	Duration       time.Duration
-	Timeout        time.Duration
-	Verbose        bool
-	CommandLine    string // The exact command that was run
+	URL              string
+	User             string
+	Pass             string
+	Full             bool
+	Frontend         bool
+	JSONOutput       string
+	MarkdownOutput   string
+	Concurrent       int
+	Duration         time.Duration
+	Timeout          time.Duration
+	Verbose          bool
+	CommandLine      string // The exact command that was run
+	BenchmarkRecords int    // Number of records for server-side benchmark API
 }
 
 // BenchmarkAPIResult holds results from calling /api/benchmark
@@ -106,18 +107,19 @@ type BenchmarkAPIResult struct {
 
 // BenchmarkAPIResponse mirrors the ActaLog benchmark endpoint response
 type BenchmarkAPIResponse struct {
-	Timestamp            time.Time                     `json:"timestamp"`
-	Version              string                        `json:"version"`
-	SystemInfo           *SystemInfo                   `json:"system_info,omitempty"`
-	TotalDurationMs      float64                       `json:"total_duration_ms"`
-	Overall              string                        `json:"overall"`
-	Database             map[string]*OperationResult   `json:"database,omitempty"`
-	Serialization        map[string]*OperationResult   `json:"serialization,omitempty"`
-	BusinessLogic        map[string]*OperationResult   `json:"business_logic,omitempty"`
-	Concurrent           map[string]*OperationResult   `json:"concurrent,omitempty"`
-	TotalOperations      int                           `json:"total_operations"`
-	SuccessfulOperations int                           `json:"successful_operations"`
-	FailedOperations     int                           `json:"failed_operations"`
+	Timestamp            time.Time                   `json:"timestamp"`
+	Version              string                      `json:"version"`
+	SystemInfo           *SystemInfo                 `json:"system_info,omitempty"`
+	TotalDurationMs      float64                     `json:"total_duration_ms"`
+	Overall              string                      `json:"overall"`
+	RecordCount          int                         `json:"record_count"`
+	Database             map[string]*OperationResult `json:"database,omitempty"`
+	Serialization        map[string]*OperationResult `json:"serialization,omitempty"`
+	BusinessLogic        map[string]*OperationResult `json:"business_logic,omitempty"`
+	Concurrent           map[string]*OperationResult `json:"concurrent,omitempty"`
+	TotalOperations      int                         `json:"total_operations"`
+	SuccessfulOperations int                         `json:"successful_operations"`
+	FailedOperations     int                         `json:"failed_operations"`
 }
 
 // SystemInfo contains ActaLog runtime environment info

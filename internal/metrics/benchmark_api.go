@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"time"
 
@@ -11,14 +12,28 @@ import (
 )
 
 // RunBenchmarkAPI calls the /api/benchmark endpoint and returns structured results
-func RunBenchmarkAPI(ctx context.Context, c *client.Client, includeConcurrent bool) *internal.BenchmarkAPIResult {
+func RunBenchmarkAPI(ctx context.Context, c *client.Client, includeConcurrent bool, recordCount int) *internal.BenchmarkAPIResult {
 	result := &internal.BenchmarkAPIResult{}
 
 	// Build URL with query params
 	path := "/api/benchmark"
+	params := ""
+
+	// Add concurrent param
 	if includeConcurrent {
-		path += "?concurrent=true"
+		params = "?concurrent=true"
 	}
+
+	// Add records param
+	if recordCount > 0 && recordCount != 1000 {
+		if params == "" {
+			params = fmt.Sprintf("?records=%d", recordCount)
+		} else {
+			params += fmt.Sprintf("&records=%d", recordCount)
+		}
+	}
+
+	path += params
 
 	start := time.Now()
 	resp, err := c.Post(ctx, path, nil)

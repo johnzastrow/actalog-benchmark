@@ -254,6 +254,11 @@ func main() {
 				Value: 10,
 				Usage: "Alert threshold for minimum RPS",
 			},
+			&cli.IntFlag{
+				Name:  "benchmark-records",
+				Value: 1000,
+				Usage: "Number of records for server-side benchmark API (default: 1000, max: 500000)",
+			},
 		},
 		Action: run,
 	}
@@ -304,6 +309,9 @@ func buildCommandLine(c *cli.Context) string {
 	if c.Bool("verbose") {
 		parts = append(parts, "--verbose")
 	}
+	if benchRecords := c.Int("benchmark-records"); benchRecords != 1000 {
+		parts = append(parts, fmt.Sprintf("--benchmark-records %d", benchRecords))
+	}
 
 	return strings.Join(parts, " \\\n  ")
 }
@@ -322,18 +330,19 @@ func run(c *cli.Context) error {
 	ctx := context.Background()
 
 	config := &internal.Config{
-		URL:            c.String("url"),
-		User:           c.String("user"),
-		Pass:           c.String("pass"),
-		Full:           c.Bool("full"),
-		Frontend:       c.Bool("frontend"),
-		JSONOutput:     c.String("json"),
-		MarkdownOutput: c.String("markdown"),
-		Concurrent:     c.Int("concurrent"),
-		Duration:       c.Duration("duration"),
-		Timeout:        c.Duration("timeout"),
-		Verbose:        c.Bool("verbose"),
-		CommandLine:    buildCommandLine(c),
+		URL:              c.String("url"),
+		User:             c.String("user"),
+		Pass:             c.String("pass"),
+		Full:             c.Bool("full"),
+		Frontend:         c.Bool("frontend"),
+		JSONOutput:       c.String("json"),
+		MarkdownOutput:   c.String("markdown"),
+		Concurrent:       c.Int("concurrent"),
+		Duration:         c.Duration("duration"),
+		Timeout:          c.Duration("timeout"),
+		Verbose:          c.Bool("verbose"),
+		CommandLine:      buildCommandLine(c),
+		BenchmarkRecords: c.Int("benchmark-records"),
 	}
 
 	result := &internal.BenchmarkResult{
@@ -407,9 +416,9 @@ func run(c *cli.Context) error {
 	// Phase 3.6: Server-side benchmark API (if authenticated and --full)
 	if httpClient.IsAuthenticated() && config.Full {
 		if config.Verbose {
-			fmt.Println("Running server-side benchmark API...")
+			fmt.Printf("Running server-side benchmark API (records=%d)...\n", config.BenchmarkRecords)
 		}
-		result.BenchmarkAPI = metrics.RunBenchmarkAPI(ctx, httpClient, config.Concurrent > 1)
+		result.BenchmarkAPI = metrics.RunBenchmarkAPI(ctx, httpClient, config.Concurrent > 1, config.BenchmarkRecords)
 		if result.BenchmarkAPI != nil && result.BenchmarkAPI.Response != nil {
 			// Use server-reported version if available
 			if result.BenchmarkAPI.Response.Version != "" {
