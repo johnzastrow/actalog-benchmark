@@ -290,6 +290,56 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 		sb.WriteString("\n")
 	}
 
+	// API Endpoints Comparison
+	if hasEndpoints(results) {
+		sb.WriteString("## API Endpoint Performance Comparison\n\n")
+		sb.WriteString("API endpoint testing measures the response time of individual authenticated endpoints. These tests verify that the application's core functionality is performing correctly under normal load.\n\n")
+		sb.WriteString("Each endpoint was tested with a single request to measure baseline performance. Response times under 100ms are generally considered excellent.\n\n")
+
+		// Collect all unique endpoints across all runs
+		endpointPaths := collectEndpointPaths(results)
+
+		if len(endpointPaths) > 0 {
+			sb.WriteString("| Endpoint |")
+			for i := range results {
+				sb.WriteString(fmt.Sprintf(" Run %d (ms) |", i+1))
+			}
+			sb.WriteString(" Δ (Last vs First) |\n")
+
+			sb.WriteString("|----------|")
+			for range results {
+				sb.WriteString("------------:|")
+			}
+			sb.WriteString("---------------:|\n")
+
+			for _, path := range endpointPaths {
+				sb.WriteString(fmt.Sprintf("| `%s` |", path))
+				var firstVal, lastVal float64
+				var firstSet bool
+				for i, r := range results {
+					val, found := getEndpointResponseTime(r, path)
+					if found {
+						sb.WriteString(fmt.Sprintf(" %.2f |", val))
+						if !firstSet {
+							firstVal = val
+							firstSet = true
+						}
+						lastVal = val
+					} else {
+						sb.WriteString(" - |")
+					}
+					_ = i
+				}
+				if firstSet {
+					sb.WriteString(formatDelta(lastVal, firstVal) + " |\n")
+				} else {
+					sb.WriteString(" - |\n")
+				}
+			}
+			sb.WriteString("\n")
+		}
+	}
+
 	// Frontend Comparison
 	if hasFrontend(results) {
 		sb.WriteString("## Frontend Assets Comparison\n\n")
@@ -340,18 +390,59 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 		}
 		sb.WriteString(formatDelta(lastTime, firstTime) + " |\n")
 		sb.WriteString("\n")
+
+		// Individual Assets section
+		assetPaths := collectAssetPaths(results)
+		if len(assetPaths) > 0 {
+			sb.WriteString("### Individual Asset Performance\n\n")
+			sb.WriteString("This table shows the size and load time for each individual frontend asset. Large or slow-loading assets are good candidates for optimization.\n\n")
+
+			sb.WriteString("| Asset |")
+			for i := range results {
+				sb.WriteString(fmt.Sprintf(" Run %d Size (KB) | Run %d Time (ms) |", i+1, i+1))
+			}
+			sb.WriteString("\n")
+
+			sb.WriteString("|-------|")
+			for range results {
+				sb.WriteString("--------------:|---------------:|")
+			}
+			sb.WriteString("\n")
+
+			for _, path := range assetPaths {
+				sb.WriteString(fmt.Sprintf("| `%s` |", path))
+				for _, r := range results {
+					size, timeMs, found := getAssetMetrics(r, path)
+					if found {
+						sb.WriteString(fmt.Sprintf(" %.2f | %.2f |", size, timeMs))
+					} else {
+						sb.WriteString(" - | - |")
+					}
+				}
+				sb.WriteString("\n")
+			}
+			sb.WriteString("\n")
+		}
 	}
 
 	// Load Test Comparison
 	if hasLoadTest(results) {
 		sb.WriteString("## Load Test Comparison\n\n")
 		sb.WriteString("Load testing simulates multiple concurrent users making requests to measure how the server performs under stress. These metrics are critical for understanding capacity and identifying performance bottlenecks.\n\n")
+		sb.WriteString("### Configuration & Throughput\n\n")
 		sb.WriteString("- **Concurrent**: Number of simultaneous users (goroutines) making requests during the test.\n")
+		sb.WriteString("- **Duration (sec)**: How long the load test ran in seconds.\n")
+		sb.WriteString("- **Total Requests**: Total number of HTTP requests made during the test.\n")
+		sb.WriteString("- **Successful**: Number of requests that returned HTTP 2xx responses.\n")
+		sb.WriteString("- **Failed**: Number of requests that failed or returned error responses.\n")
 		sb.WriteString("- **RPS (Requests Per Second)**: Throughput measure showing how many requests the server can handle per second. Higher values indicate better capacity.\n")
-		sb.WriteString("- **Success Rate**: Percentage of requests that completed successfully (HTTP 2xx responses). Values below 99% may indicate server overload.\n")
+		sb.WriteString("- **Success Rate**: Percentage of requests that completed successfully. Values below 99% may indicate server overload.\n\n")
+		sb.WriteString("### Latency Distribution\n\n")
+		sb.WriteString("- **Min Latency**: Fastest response time observed during the test.\n")
 		sb.WriteString("- **p50 Latency (50th Percentile)**: The median response time—50% of requests completed faster than this value. Represents typical user experience.\n")
 		sb.WriteString("- **p95 Latency (95th Percentile)**: 95% of requests completed faster than this value. Helps identify slower outliers that affect some users.\n")
 		sb.WriteString("- **p99 Latency (99th Percentile)**: 99% of requests completed faster than this value. Reveals worst-case scenarios and tail latency issues.\n")
+		sb.WriteString("- **Max Latency**: Slowest response time observed during the test.\n")
 		sb.WriteString("- **Avg Latency**: Arithmetic mean of all response times. Can be skewed by outliers, so percentiles are often more meaningful.\n\n")
 		sb.WriteString("| Metric |")
 		for i := range results {
@@ -370,6 +461,50 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 		for _, r := range results {
 			if r.LoadTest != nil {
 				sb.WriteString(fmt.Sprintf(" %d |", r.LoadTest.Concurrent))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(" - |\n")
+
+		// Duration
+		sb.WriteString("| Duration (sec) |")
+		for _, r := range results {
+			if r.LoadTest != nil {
+				sb.WriteString(fmt.Sprintf(" %.0f |", r.LoadTest.DurationSec))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(" - |\n")
+
+		// Total Requests
+		sb.WriteString("| Total Requests |")
+		for _, r := range results {
+			if r.LoadTest != nil {
+				sb.WriteString(fmt.Sprintf(" %d |", r.LoadTest.TotalRequests))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(" - |\n")
+
+		// Successful
+		sb.WriteString("| Successful |")
+		for _, r := range results {
+			if r.LoadTest != nil {
+				sb.WriteString(fmt.Sprintf(" %d |", r.LoadTest.Successful))
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(" - |\n")
+
+		// Failed
+		sb.WriteString("| Failed |")
+		for _, r := range results {
+			if r.LoadTest != nil {
+				sb.WriteString(fmt.Sprintf(" %d |", r.LoadTest.Failed))
 			} else {
 				sb.WriteString(" - |")
 			}
@@ -403,6 +538,22 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 			}
 		}
 		sb.WriteString(" - |\n")
+
+		// Min Latency
+		sb.WriteString("| Min Latency (ms) |")
+		var firstMin, lastMin float64
+		for i, r := range results {
+			if r.LoadTest != nil {
+				sb.WriteString(fmt.Sprintf(" %.2f |", r.LoadTest.MinLatencyMs))
+				if i == 0 {
+					firstMin = r.LoadTest.MinLatencyMs
+				}
+				lastMin = r.LoadTest.MinLatencyMs
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(formatDelta(lastMin, firstMin) + " |\n")
 
 		// p50 Latency
 		sb.WriteString("| p50 Latency (ms) |")
@@ -452,6 +603,22 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 		}
 		sb.WriteString(formatDelta(lastP99, firstP99) + " |\n")
 
+		// Max Latency
+		sb.WriteString("| Max Latency (ms) |")
+		var firstMax, lastMax float64
+		for i, r := range results {
+			if r.LoadTest != nil {
+				sb.WriteString(fmt.Sprintf(" %.2f |", r.LoadTest.MaxLatencyMs))
+				if i == 0 {
+					firstMax = r.LoadTest.MaxLatencyMs
+				}
+				lastMax = r.LoadTest.MaxLatencyMs
+			} else {
+				sb.WriteString(" - |")
+			}
+		}
+		sb.WriteString(formatDelta(lastMax, firstMax) + " |\n")
+
 		// Avg Latency
 		sb.WriteString("| Avg Latency (ms) |")
 		var firstAvg, lastAvg float64
@@ -486,12 +653,12 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 	sb.WriteString("## Chart-Ready Data (CSV)\n\n")
 	sb.WriteString("The data below is formatted as CSV (Comma-Separated Values) for easy import into spreadsheet applications like Microsoft Excel, Google Sheets, or LibreOffice Calc. Copy the data between the code fences and paste into your spreadsheet to create trend charts and visualizations.\n\n")
 	sb.WriteString("### Latency Over Time\n\n")
-	sb.WriteString("Columns: Timestamp, DNS (Domain Name System resolution in milliseconds), TCP (connection time), Health (health endpoint response), p50/p95/p99 (latency percentiles from load testing).\n\n")
+	sb.WriteString("Columns: Timestamp, DNS (Domain Name System resolution), TCP (connection time), Health (health endpoint response), Min/p50/p95/p99/Max (latency distribution from load testing), Avg (average latency). All times in milliseconds.\n\n")
 	sb.WriteString("```csv\n")
-	sb.WriteString("Timestamp,DNS_ms,TCP_ms,Health_ms,p50_ms,p95_ms,p99_ms\n")
+	sb.WriteString("Timestamp,DNS_ms,TCP_ms,Health_ms,Min_ms,p50_ms,p95_ms,p99_ms,Max_ms,Avg_ms\n")
 	for _, r := range results {
 		dns, tcp, health := 0.0, 0.0, 0.0
-		p50, p95, p99 := 0.0, 0.0, 0.0
+		minLat, p50, p95, p99, maxLat, avgLat := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 		if r.Connectivity != nil {
 			dns = r.Connectivity.DNSMs
 			tcp = r.Connectivity.TCPMs
@@ -500,13 +667,16 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 			health = r.Health.ResponseMs
 		}
 		if r.LoadTest != nil {
+			minLat = r.LoadTest.MinLatencyMs
 			p50 = r.LoadTest.LatencyP50Ms
 			p95 = r.LoadTest.LatencyP95Ms
 			p99 = r.LoadTest.LatencyP99Ms
+			maxLat = r.LoadTest.MaxLatencyMs
+			avgLat = r.LoadTest.AvgLatencyMs
 		}
-		sb.WriteString(fmt.Sprintf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+		sb.WriteString(fmt.Sprintf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
 			r.Timestamp.Format("2006-01-02T15:04:05"),
-			dns, tcp, health, p50, p95, p99))
+			dns, tcp, health, minLat, p50, p95, p99, maxLat, avgLat))
 	}
 	sb.WriteString("```\n\n")
 
@@ -543,6 +713,33 @@ func (c *Comparison) Report(jsonPaths []string) (string, error) {
 			}
 		}
 		sb.WriteString("```\n\n")
+	}
+
+	if hasEndpoints(results) {
+		sb.WriteString("### API Endpoints Over Time\n\n")
+		sb.WriteString("Columns: Timestamp, then response time in milliseconds for each API endpoint tested.\n\n")
+		endpointPaths := collectEndpointPaths(results)
+		if len(endpointPaths) > 0 {
+			sb.WriteString("```csv\n")
+			sb.WriteString("Timestamp")
+			for _, path := range endpointPaths {
+				sb.WriteString(fmt.Sprintf(",%s_ms", path))
+			}
+			sb.WriteString("\n")
+			for _, r := range results {
+				sb.WriteString(r.Timestamp.Format("2006-01-02T15:04:05"))
+				for _, path := range endpointPaths {
+					val, found := getEndpointResponseTime(r, path)
+					if found {
+						sb.WriteString(fmt.Sprintf(",%.2f", val))
+					} else {
+						sb.WriteString(",")
+					}
+				}
+				sb.WriteString("\n")
+			}
+			sb.WriteString("```\n\n")
+		}
 	}
 
 	// Summary
@@ -680,6 +877,83 @@ func formatDeltaRPS(last, first float64) string {
 		return fmt.Sprintf("🔴 %.2f (%.1f%%)", diff, pct)
 	}
 	return "⚪ ~0"
+}
+
+func hasEndpoints(results []*internal.BenchmarkResult) bool {
+	for _, r := range results {
+		if len(r.Endpoints) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// collectEndpointPaths returns all unique endpoint paths across all results
+func collectEndpointPaths(results []*internal.BenchmarkResult) []string {
+	pathSet := make(map[string]bool)
+	var paths []string
+	for _, r := range results {
+		for _, ep := range r.Endpoints {
+			if !pathSet[ep.Path] {
+				pathSet[ep.Path] = true
+				paths = append(paths, ep.Path)
+			}
+		}
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+// getEndpointResponseTime returns the response time for an endpoint in a result
+func getEndpointResponseTime(r *internal.BenchmarkResult, path string) (float64, bool) {
+	for _, ep := range r.Endpoints {
+		if ep.Path == path {
+			return ep.ResponseMs, true
+		}
+	}
+	return 0, false
+}
+
+// collectAssetPaths returns all unique asset paths across all results
+func collectAssetPaths(results []*internal.BenchmarkResult) []string {
+	pathSet := make(map[string]bool)
+	var paths []string
+	for _, r := range results {
+		if r.Frontend == nil {
+			continue
+		}
+		// Add index.html first
+		if r.Frontend.IndexHTML != nil {
+			if !pathSet["index.html"] {
+				pathSet["index.html"] = true
+				paths = append(paths, "index.html")
+			}
+		}
+		// Add other assets
+		for _, asset := range r.Frontend.Assets {
+			if !pathSet[asset.Path] {
+				pathSet[asset.Path] = true
+				paths = append(paths, asset.Path)
+			}
+		}
+	}
+	return paths
+}
+
+// getAssetMetrics returns size and response time for an asset in a result
+func getAssetMetrics(r *internal.BenchmarkResult, path string) (sizeKB float64, responseMs float64, found bool) {
+	if r.Frontend == nil {
+		return 0, 0, false
+	}
+	if path == "index.html" && r.Frontend.IndexHTML != nil {
+		return r.Frontend.IndexHTML.SizeKB, r.Frontend.IndexHTML.ResponseMs, true
+	}
+	for _, asset := range r.Frontend.Assets {
+		if asset.Path == path {
+			return asset.SizeKB, asset.ResponseMs, true
+		}
+	}
+	return 0, 0, false
 }
 
 // checkThresholds evaluates all results against configured thresholds
