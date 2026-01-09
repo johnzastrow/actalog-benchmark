@@ -12,6 +12,7 @@ type BenchmarkResult struct {
 	Endpoints    []EndpointResult    `json:"endpoints,omitempty"`
 	Frontend     *FrontendResult     `json:"frontend,omitempty"`
 	LoadTest     *LoadTestResult     `json:"load_test,omitempty"`
+	BenchmarkAPI *BenchmarkAPIResult `json:"benchmark_api,omitempty"`
 	Overall      string              `json:"overall"`
 	Error        string              `json:"error,omitempty"`
 }
@@ -92,4 +93,49 @@ type Config struct {
 	Timeout        time.Duration
 	Verbose        bool
 	CommandLine    string // The exact command that was run
+}
+
+// BenchmarkAPIResult holds results from calling /api/benchmark
+type BenchmarkAPIResult struct {
+	Success         bool                  `json:"success"`
+	HTTPStatus      int                   `json:"http_status"`
+	TotalDurationMs float64               `json:"total_duration_ms"`
+	Response        *BenchmarkAPIResponse `json:"response,omitempty"`
+	Error           string                `json:"error,omitempty"`
+}
+
+// BenchmarkAPIResponse mirrors the ActaLog benchmark endpoint response
+type BenchmarkAPIResponse struct {
+	Timestamp            time.Time                     `json:"timestamp"`
+	Version              string                        `json:"version"`
+	SystemInfo           *SystemInfo                   `json:"system_info,omitempty"`
+	TotalDurationMs      float64                       `json:"total_duration_ms"`
+	Overall              string                        `json:"overall"`
+	Database             map[string]*OperationResult   `json:"database,omitempty"`
+	Serialization        map[string]*OperationResult   `json:"serialization,omitempty"`
+	BusinessLogic        map[string]*OperationResult   `json:"business_logic,omitempty"`
+	Concurrent           map[string]*OperationResult   `json:"concurrent,omitempty"`
+	TotalOperations      int                           `json:"total_operations"`
+	SuccessfulOperations int                           `json:"successful_operations"`
+	FailedOperations     int                           `json:"failed_operations"`
+}
+
+// SystemInfo contains ActaLog runtime environment info
+type SystemInfo struct {
+	GoVersion       string `json:"go_version"`
+	GoOS            string `json:"go_os"`
+	GoArch          string `json:"go_arch"`
+	OSVersion       string `json:"os_version,omitempty"`
+	NumCPU          int    `json:"num_cpu"`
+	DatabaseVersion string `json:"database_version"`
+	DatabaseDriver  string `json:"database_driver"`
+}
+
+// OperationResult represents a single benchmark operation result
+type OperationResult struct {
+	Operation       string  `json:"operation"`
+	Success         bool    `json:"success"`
+	DurationMs      float64 `json:"duration_ms"`
+	RecordsAffected int     `json:"records_affected,omitempty"`
+	Error           string  `json:"error,omitempty"`
 }

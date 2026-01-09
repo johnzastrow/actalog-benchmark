@@ -303,6 +303,119 @@ func (m *Markdown) Report(result *internal.BenchmarkResult) (string, error) {
 		sb.WriteString("\n")
 	}
 
+	// Server-Side Benchmark API
+	if result.BenchmarkAPI != nil && result.BenchmarkAPI.Response != nil {
+		sb.WriteString("## Server-Side Benchmark\n\n")
+		sb.WriteString("The server-side benchmark tests internal ActaLog operations including database queries, ")
+		sb.WriteString("JSON serialization, and business logic calculations. This provides insight into server performance ")
+		sb.WriteString("independent of network latency.\n\n")
+
+		resp := result.BenchmarkAPI.Response
+
+		// System Information
+		if resp.SystemInfo != nil {
+			sb.WriteString("### System Information\n\n")
+			sb.WriteString("| Property | Value |\n")
+			sb.WriteString("|----------|-------|\n")
+			sb.WriteString(fmt.Sprintf("| ActaLog Version | %s |\n", resp.Version))
+			sb.WriteString(fmt.Sprintf("| Go Version | %s |\n", resp.SystemInfo.GoVersion))
+			sb.WriteString(fmt.Sprintf("| Platform | %s/%s |\n", resp.SystemInfo.GoOS, resp.SystemInfo.GoArch))
+			if resp.SystemInfo.OSVersion != "" {
+				sb.WriteString(fmt.Sprintf("| OS Version | %s |\n", resp.SystemInfo.OSVersion))
+			}
+			sb.WriteString(fmt.Sprintf("| CPUs | %d |\n", resp.SystemInfo.NumCPU))
+			sb.WriteString(fmt.Sprintf("| Database | %s %s |\n", resp.SystemInfo.DatabaseDriver, resp.SystemInfo.DatabaseVersion))
+			sb.WriteString("\n")
+		}
+
+		// Summary
+		sb.WriteString("### Benchmark Summary\n\n")
+		sb.WriteString("| Metric | Value |\n")
+		sb.WriteString("|--------|------:|\n")
+		overallStatus := "✅ " + resp.Overall
+		if resp.Overall != "pass" {
+			overallStatus = "❌ " + resp.Overall
+		}
+		sb.WriteString(fmt.Sprintf("| Overall Status | %s |\n", overallStatus))
+		sb.WriteString(fmt.Sprintf("| Total Duration | %.2f ms |\n", resp.TotalDurationMs))
+		sb.WriteString(fmt.Sprintf("| Total Operations | %d |\n", resp.TotalOperations))
+		sb.WriteString(fmt.Sprintf("| Successful | %d |\n", resp.SuccessfulOperations))
+		sb.WriteString(fmt.Sprintf("| Failed | %d |\n", resp.FailedOperations))
+		sb.WriteString("\n")
+
+		// Database Operations
+		if len(resp.Database) > 0 {
+			sb.WriteString("### Database Operations\n\n")
+			sb.WriteString("| Operation | Duration (ms) | Records | Result |\n")
+			sb.WriteString("|-----------|-------------:|--------:|--------|\n")
+			for name, op := range resp.Database {
+				if op == nil {
+					continue
+				}
+				status := "✅"
+				if !op.Success {
+					status = "❌"
+				}
+				sb.WriteString(fmt.Sprintf("| %s | %.2f | %d | %s |\n", name, op.DurationMs, op.RecordsAffected, status))
+			}
+			sb.WriteString("\n")
+		}
+
+		// Serialization Operations
+		if len(resp.Serialization) > 0 {
+			sb.WriteString("### Serialization Operations\n\n")
+			sb.WriteString("| Operation | Duration (ms) | Result |\n")
+			sb.WriteString("|-----------|-------------:|--------|\n")
+			for name, op := range resp.Serialization {
+				if op == nil {
+					continue
+				}
+				status := "✅"
+				if !op.Success {
+					status = "❌"
+				}
+				sb.WriteString(fmt.Sprintf("| %s | %.2f | %s |\n", name, op.DurationMs, status))
+			}
+			sb.WriteString("\n")
+		}
+
+		// Business Logic Operations
+		if len(resp.BusinessLogic) > 0 {
+			sb.WriteString("### Business Logic Operations\n\n")
+			sb.WriteString("| Operation | Duration (ms) | Iterations | Result |\n")
+			sb.WriteString("|-----------|-------------:|-----------:|--------|\n")
+			for name, op := range resp.BusinessLogic {
+				if op == nil {
+					continue
+				}
+				status := "✅"
+				if !op.Success {
+					status = "❌"
+				}
+				sb.WriteString(fmt.Sprintf("| %s | %.2f | %d | %s |\n", name, op.DurationMs, op.RecordsAffected, status))
+			}
+			sb.WriteString("\n")
+		}
+
+		// Concurrent Operations
+		if len(resp.Concurrent) > 0 {
+			sb.WriteString("### Concurrent Operations\n\n")
+			sb.WriteString("| Operation | Duration (ms) | Workers | Result |\n")
+			sb.WriteString("|-----------|-------------:|--------:|--------|\n")
+			for name, op := range resp.Concurrent {
+				if op == nil {
+					continue
+				}
+				status := "✅"
+				if !op.Success {
+					status = "❌"
+				}
+				sb.WriteString(fmt.Sprintf("| %s | %.2f | %d | %s |\n", name, op.DurationMs, op.RecordsAffected, status))
+			}
+			sb.WriteString("\n")
+		}
+	}
+
 	// Overall Result
 	sb.WriteString("## Conclusion\n\n")
 	if result.Error != "" {

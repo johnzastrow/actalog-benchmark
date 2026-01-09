@@ -42,6 +42,10 @@ func (c *Console) Report(result *internal.BenchmarkResult) {
 		c.printLoadTest(result.LoadTest)
 	}
 
+	if result.BenchmarkAPI != nil {
+		c.printBenchmarkAPI(result.BenchmarkAPI)
+	}
+
 	c.printOverall(result)
 }
 
@@ -187,6 +191,106 @@ func (c *Console) printLoadTest(load *internal.LoadTestResult) {
 
 	yellow.Println("└──────────────────────────────────────────────────────────────┘")
 	fmt.Println()
+}
+
+func (c *Console) printBenchmarkAPI(api *internal.BenchmarkAPIResult) {
+	yellow := color.New(color.FgYellow)
+	green := color.New(color.FgGreen)
+	red := color.New(color.FgRed)
+
+	yellow.Println("┌─ Server-Side Benchmark API ──────────────────────────────────┐")
+
+	if api.Error != "" {
+		fmt.Printf("│ %-60s │\n", color.RedString("Error: %s", truncate(api.Error, 52)))
+		yellow.Println("└──────────────────────────────────────────────────────────────┘")
+		fmt.Println()
+		return
+	}
+
+	if api.Response == nil {
+		yellow.Println("└──────────────────────────────────────────────────────────────┘")
+		fmt.Println()
+		return
+	}
+
+	resp := api.Response
+
+	// System Info
+	if resp.SystemInfo != nil {
+		fmt.Printf("│ ActaLog Version:    %-40s │\n", resp.Version)
+		fmt.Printf("│ Go Version:         %-40s │\n", resp.SystemInfo.GoVersion)
+		fmt.Printf("│ Platform:           %-40s │\n", resp.SystemInfo.GoOS+"/"+resp.SystemInfo.GoArch)
+		if resp.SystemInfo.OSVersion != "" {
+			osVer := truncate(resp.SystemInfo.OSVersion, 40)
+			fmt.Printf("│ OS Version:         %-40s │\n", osVer)
+		}
+		fmt.Printf("│ CPUs:               %-40d │\n", resp.SystemInfo.NumCPU)
+		fmt.Printf("│ Database:           %-40s │\n", resp.SystemInfo.DatabaseDriver+" "+resp.SystemInfo.DatabaseVersion)
+		fmt.Printf("│──────────────────────────────────────────────────────────────│\n")
+	}
+
+	// Overall status
+	overallStr := resp.Overall
+	if resp.Overall == "pass" {
+		overallStr = green.Sprint("✓ pass")
+	} else {
+		overallStr = red.Sprint("✗ " + resp.Overall)
+	}
+	fmt.Printf("│ Overall:            %-40s │\n", overallStr)
+	fmt.Printf("│ Total Duration:     %7.1fms                                 │\n", resp.TotalDurationMs)
+	fmt.Printf("│ Operations:         %d total, %d passed, %d failed            │\n",
+		resp.TotalOperations, resp.SuccessfulOperations, resp.FailedOperations)
+
+	// Show detailed results in verbose mode
+	if c.verbose {
+		// Database operations
+		if len(resp.Database) > 0 {
+			fmt.Printf("│──────────────────────────────────────────────────────────────│\n")
+			fmt.Printf("│ Database Operations:                                         │\n")
+			c.printOperationMap(resp.Database)
+		}
+
+		// Serialization operations
+		if len(resp.Serialization) > 0 {
+			fmt.Printf("│──────────────────────────────────────────────────────────────│\n")
+			fmt.Printf("│ Serialization:                                               │\n")
+			c.printOperationMap(resp.Serialization)
+		}
+
+		// Business logic operations
+		if len(resp.BusinessLogic) > 0 {
+			fmt.Printf("│──────────────────────────────────────────────────────────────│\n")
+			fmt.Printf("│ Business Logic:                                              │\n")
+			c.printOperationMap(resp.BusinessLogic)
+		}
+
+		// Concurrent operations
+		if len(resp.Concurrent) > 0 {
+			fmt.Printf("│──────────────────────────────────────────────────────────────│\n")
+			fmt.Printf("│ Concurrent Operations:                                       │\n")
+			c.printOperationMap(resp.Concurrent)
+		}
+	}
+
+	yellow.Println("└──────────────────────────────────────────────────────────────┘")
+	fmt.Println()
+}
+
+func (c *Console) printOperationMap(ops map[string]*internal.OperationResult) {
+	green := color.New(color.FgGreen)
+	red := color.New(color.FgRed)
+
+	for name, op := range ops {
+		if op == nil {
+			continue
+		}
+		status := green.Sprint("✓")
+		if !op.Success {
+			status = red.Sprint("✗")
+		}
+		opName := truncate(name, 20)
+		fmt.Printf("│   %-20s %7.2fms  %s                            │\n", opName, op.DurationMs, status)
+	}
 }
 
 func (c *Console) printOverall(result *internal.BenchmarkResult) {

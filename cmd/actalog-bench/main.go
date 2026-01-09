@@ -404,6 +404,20 @@ func run(c *cli.Context) error {
 		result.Frontend = metrics.BenchmarkFrontend(ctx, httpClient)
 	}
 
+	// Phase 3.6: Server-side benchmark API (if authenticated and --full)
+	if httpClient.IsAuthenticated() && config.Full {
+		if config.Verbose {
+			fmt.Println("Running server-side benchmark API...")
+		}
+		result.BenchmarkAPI = metrics.RunBenchmarkAPI(ctx, httpClient, config.Concurrent > 1)
+		if result.BenchmarkAPI != nil && result.BenchmarkAPI.Response != nil {
+			// Use server-reported version if available
+			if result.BenchmarkAPI.Response.Version != "" {
+				result.Version = result.BenchmarkAPI.Response.Version
+			}
+		}
+	}
+
 	// Phase 4: Load test (if concurrent > 1 or explicitly requested with --full)
 	if config.Concurrent > 1 || (config.Full && config.Concurrent == 1) {
 		if config.Concurrent == 1 {
